@@ -9,9 +9,10 @@ from slackeventsapi import SlackEventAdapter
 #env_path = Path('.') / '.env'
 load_dotenv()
 
-schema_path = Path(__file__).parent.parent / "schema.sql"
+schema_path = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
+schema_path = os.path.abspath(schema_path)
 
-def init_db(db_path="house_manager.db"):
+def init_db(db_path="data/house_manager.db"):
     conn = sqlite3.connect(db_path)
     with open(schema_path, "r") as f:
         conn.executescript(f.read())
