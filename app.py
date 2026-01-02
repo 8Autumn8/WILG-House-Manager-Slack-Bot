@@ -403,12 +403,17 @@ def expire_incomplete_jobs():
     expire_assignments()
     return
 
-@app.route('/expire-incomplete-jobs', methods=['GET', 'POST'])
+@app.route('F', methods=['GET', 'POST'])
 def expire_incomplete_jobs_api():
     print("Expiring incomplete jobs...")
     client.chat_postMessage(channel=house_mnager_channel_id, text="Expiring incomplete jobs...")
     expire_incomplete_jobs()
     return Response(), 200
+
+
+@app.route("/ping")
+def ping():
+    return "pong", 200
 
 
 
