@@ -17,7 +17,7 @@ def add_job_assignments_to_db(assignments, start_date):
     """
     # Parse start_date if string
     if isinstance(start_date, str):
-        start_date = datetime.strptime(parse_date(start_date), "%Y-%m-%d")
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
 
     for assignment in assignments:
         job_name = assignment["Job Name"]
@@ -36,6 +36,7 @@ def add_job_assignments_to_db(assignments, start_date):
             continue
         job = job_rows[0]
         job_id, job_type = job["job_id"], job["job_type"].upper()
+        job_time_str = job.get("time", "00:00:00")  # expected format: HH:MM:SS
 
         if job_type not in FREQUENCY_CONFIG:
             print(f"Job type '{job_type}' for job '{job_name}' is invalid, skipping assignment.")
@@ -52,18 +53,39 @@ def add_job_assignments_to_db(assignments, start_date):
             continue
         user_id = user_rows[0]["user_id"]
 
+        # Generate first due_at datetime
+        due_at = start_date.replace(
+            hour=int(job_time_str[:2]),
+            minute=int(job_time_str[3:5]),
+            second=int(job_time_str[6:8]),
+            microsecond=0
+        )
+
+        # If job name contains a weekday, adjust start date to that day
+        weekdays = {
+            "monday": 0, "tuesday": 1, "wednesday": 2,
+            "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6
+        }
+        for day_name, weekday_num in weekdays.items():
+            if day_name in job_name.lower():
+                # Move due_at forward to the next matching weekday
+                days_ahead = (weekday_num - due_at.weekday() + 7) % 7
+                if days_ahead != 0:
+                    due_at += timedelta(days=days_ahead)
+                break
+
         # Generate recurring assignments
         config = FREQUENCY_CONFIG[job_type]
-        due_at = start_date
 
         records_to_insert = []
+        current_due = due_at
         for _ in range(config["count"]):
             records_to_insert.append({
                 "user_id": user_id,
                 "job_id": job_id,
-                "due_at": due_at.isoformat()
+                "due_at": current_due.isoformat()
             })
-            due_at += config["delta"]
+            current_due += config["delta"]
 
         # Insert all at once
         execute_query("active_assignments", "insert", data=records_to_insert)

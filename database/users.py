@@ -1,22 +1,22 @@
 from database.db import execute_query
-
 def get_all_user_hours():
     """
     Retrieve all users with their hours completed, hours needed, and missed jobs.
     Returns a list of dicts.
     """
-    rows = execute_query("users", "select", columns=["username", "hours_completed", "hours_needed", "missed_jobs"])
+    # Fetch all rows from the 'users' table
+    rows = execute_query("users", "select")
 
-    return [
-        {
+    result = []
+    for row in rows:
+        result.append({
             "username": row.get("username"),
             "hours_completed": row.get("hours_completed"),
             "hours_needed": row.get("hours_needed"),
             "missed_jobs": row.get("missed_jobs")
-        }
-        for row in rows
-    ]
+        })
 
+    return result
 
 
 def db_generate_user_table(user_tuples):
