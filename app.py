@@ -13,10 +13,15 @@ from services.reminders import get_expiring_jobs
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
+#env_path = Path(__file__).parent.parent / '.env'
+load_dotenv()
 client = slack.WebClient(token=os.getenv("SLACK_TOKEN"))
 app = Flask(__name__)
+
+
+slack_event_adapter = SlackEventAdapter(os.getenv('SIGNING_SECRET'), '/slack/events', app)
+BOT_ID = client.api_call("auth.test")['user_id']
+
 
 def send_slack_message(channel, message):
     response = client.chat_postMessage(channel=channel, text=message)
@@ -25,11 +30,6 @@ def send_slack_message(channel, message):
     else:
         print("Failed to send message:", response['error'])
 
-
-
-
-slack_event_adapter = SlackEventAdapter(os.getenv('SIGNING_SECRET'), '/slack/events', app)
-BOT_ID = client.api_call("auth.test")['user_id']
 
 
 @slack_event_adapter.on('message')

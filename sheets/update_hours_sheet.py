@@ -1,9 +1,11 @@
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+from pathlib import Path
 
 # This is the house manager spreadsheet that also holds all the submission records, publically available to everyone.
 SPREADSHEET_NAME = os.getenv("SUBMISSION_SPREADSHEET") # exact sheet name
+auth_file = Path(__file__).parent.parent / "google_auth.json"
 
 def add_to_submission_logs(submission_id, submission_time, name, job, date_of_completion, witness, comments):
     
@@ -13,7 +15,7 @@ def add_to_submission_logs(submission_id, submission_time, name, job, date_of_co
     ]
 
     creds = Credentials.from_service_account_file(
-        "google_auth.json",
+        auth_file,
         scopes=scopes
     )
     print("Updating Google Sheet...")
