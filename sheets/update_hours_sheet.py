@@ -77,7 +77,7 @@ def get_approved_from_sheet():
 
     if not to_move_rows:
         #print("No approved submissions found.")
-        return []
+        return approved_ids, rejected_ids
 
     # Append approved rows to destination sheet
     dest_sheet.append_rows(

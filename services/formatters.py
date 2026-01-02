@@ -86,8 +86,8 @@ def format_all_user_hours_table(all_user_hours):
 
     header = (
         "```"
-        "Username        Hours Completed   Hours Needed\n"
-        "-----------------------------------------------\n"
+        "Username        Hours Completed                Missed Jobs\n"
+        "------------------------------------------------------------\n"
     )
 
     rows = []
@@ -95,7 +95,7 @@ def format_all_user_hours_table(all_user_hours):
         rows.append(
             f"{str(user['username']).ljust(20)} "
             f"{str(user['hours_completed']).ljust(16)} "
-            f"{str(user['hours_needed'])}"
+            f"{str(user['missed_jobs'])}"
         )
 
     footer = "\n```"
@@ -140,6 +140,57 @@ def format_user_active_assignments(assignments):
             f"{str(a['job_name']).ljust(30)} "
             f"{str(due_at).ljust(26)} "
             f"{a['status']}"
+        )
+
+    footer = "\n```"
+
+    return header + "\n".join(rows) + footer
+
+
+def format_makeup_giveup_message(job):
+    """
+    Formats a message for a job that was given up for makeup.
+    Expects a dict with:
+    assignment_id, job_id, job_name, job_description, due_at
+    """
+    due_at = job["due_at"]
+
+    # Normalize datetime
+    if isinstance(due_at, str):
+        due_at = due_at.split(".")[0]
+        due_at = datetime.fromisoformat(due_at)
+
+    due_str = due_at.strftime("%A, %B %d at %I:%M %p")
+
+    return (
+        "🛠️ *Job given up for makeup*\n\n"
+        f"*Job:* {job['job_name']}\n"
+        f"*Description:* {job['job_description']}\n"
+        f"*Due:* {due_str}\n"
+        f"*Assignment ID:* `{job['assignment_id']}`"
+    )
+
+
+def format_makeup_jobs(jobs):
+    if not jobs:
+        return "*No makeup jobs found.*"
+
+    header = (
+        "```"
+        "ID   Job Name                        Due At                  \n"
+        "-------------------------------------------------------------\n"
+    )
+
+    rows = []
+    for j in jobs:
+        due_at = j["due_at"]
+        if isinstance(due_at, str):
+            due_at = due_at.split(".")[0]
+
+        rows.append(
+            f"{str(j['original_assignment_id']).ljust(4)} "
+            f"{str(j['job_name']).ljust(30)} "
+            f"{str(due_at).ljust(26)} "
         )
 
     footer = "\n```"

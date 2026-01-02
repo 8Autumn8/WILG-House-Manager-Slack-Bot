@@ -5,13 +5,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, json, request, Response, jsonify
 from slackeventsapi import SlackEventAdapter
-from services.submissions import (
-    submit_hours,
-    get_user_submissions,
-    sync_hours
-)
-from services.formatters import format_submissions_table, build_page_blocks, format_all_user_hours_table, format_user_active_assignments, parse_date
-from services.makeup import giveup_job_for_makeup, expire_makeup_jobs
+from services.submissions import submit_hours, get_user_submissions, sync_hours
+from services.formatters import format_submissions_table, build_page_blocks, format_all_user_hours_table, format_user_active_assignments, parse_date, format_makeup_giveup_message, format_makeup_jobs
+from services.makeup import claim_job_for_makeup, giveup_job_for_makeup, expire_makeup_jobs, see_makeup_jobs
 from services.assignments import generate_user_table, get_user_assignments, expire_assignments
 from services.reminders import get_expiring_jobs
 from datetime import datetime
@@ -134,23 +130,74 @@ def submit_hour_api():
     # Return empty 200 response so Slack doesn't timeout
     return Response(), 200
 
-def giveup_job_for_makeup_background(user_id, assignment_id):
-    result = giveup_job_for_makeup(user_id, assignment_id)
-    return
-@app.route('/giveup-job-for-makeup', methods=['POST'])
-def giveup_job_for_makeup_api():
+def claim_job_for_makeup_background(channel_id, user_id, assignment_id):
+    result = claim_job_for_makeup(user_id, assignment_id)
+    if not result:
+        message = "❌ Could not claim job for makeup. Please check the assignment ID is still available for makeup and try again."
+    else:
+        message = f"✅ Job claimed for makeup: {result['job_name']}"
+
+    client.chat_postMessage(
+        channel=channel_id,
+        text=message
+    )
+
+@app.route('/claim-makeup-job', methods=['POST'])
+def claim_job_makeup_job_api():
     data = request.form
     user_id = data.get('user_id')
     username = data.get('display_name_normalized')
     channel_id = data.get('channel_id')
     assignmnet_id = data.get('text')
-    message = f"{username} gave up a job for makeup..."
+    message = f"Claiming a makeup job..."
+    response = client.chat_postMessage(channel=channel_id, text=message)
+    #print(data)
+    
+    threading.Thread(
+        target=claim_job_for_makeup_background,
+        args=(channel_id, user_id, assignmnet_id)
+    ).start()
+    return Response(), 200
+
+MAKEUP_HOUR_CHANNEL = os.getenv("MAKEUP_HOUR_CHANNEL_ID")
+def giveup_job_for_makeup_background(channel_id, user_id, assignment_id):
+    print(channel_id)
+    result = giveup_job_for_makeup(user_id, assignment_id)
+    if not result:
+        message = "❌ Could not give up job for makeup. Please check the assignment ID and try again."
+        client.chat_postMessage(
+            channel=channel_id,
+            text=message
+        )
+    elif isinstance(result, Exception):
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"❌ An error occurred while giving up the job for makeup: {str(result)}"
+        )
+    else:
+        
+        message = format_makeup_giveup_message(result)
+        client.chat_postMessage(
+            channel=MAKEUP_HOUR_CHANNEL, #makeup hour channel for postings
+            text=message
+        )
+
+
+@app.route('/giveup-job-for-makeup', methods=['POST'])
+def giveup_job_for_makeup_api():
+    data = request.form
+    print(data)
+    user_id = data.get('user_id')
+    username = data.get('user_name')
+    channel_id = data.get('channel_id')
+    assignmnet_id = data.get('text')
+    message = f"Giving up job for makeup..."
     response = client.chat_postMessage(channel=channel_id, text=message)
     print(data)
     
     threading.Thread(
         target=giveup_job_for_makeup_background,
-        args=(user_id, assignmnet_id)
+        args=(channel_id, user_id, assignmnet_id)
     ).start()
     return Response(), 200
 
@@ -218,6 +265,8 @@ def update_approved_hours_background():
         channel=house_mnager_channel_id, #house manager channel for hour postings
         text=message
     )
+
+
 
 ADMINS = os.getenv("ADMIN_USER_IDS").split(",")
 @app.route('/update-approved-hours', methods=['POST'])
@@ -308,6 +357,30 @@ def get_my_assignments_api():
 
     return Response(), 200
 
+
+def see_makeup_jobs_background(user_id, channel_id):
+    result = see_makeup_jobs()
+    message = format_makeup_jobs(result)
+    client.chat_postMessage(
+        channel=channel_id,
+        text=message
+    )
+
+@app.route('/see-makeup-jobs', methods=['GET', 'POST'])
+def see_makeup_jobs_api():
+    data = request.form
+    user_id = data.get('user_id')
+    channel_id = data.get('channel_id')
+    message = f"Getting makeup jobs"
+    response = client.chat_postMessage(channel=channel_id, text=message)
+
+    threading.Thread(
+        target=see_makeup_jobs_background,
+        args=(user_id, channel_id)
+    ).start()
+
+    return Response(), 200
+
 #SCHEDULER TO RUN STUFF PERIODICALLY
 def send_expiring_job_reminders():
     #print("Sending expiring job reminders...")
@@ -317,8 +390,10 @@ def send_expiring_job_reminders():
         text = f"⚠️ Job *{job['job_name']}* is expiring tonight! Please submit your hours. After tonight you will forfeit the hours for this job."
         client.chat_postMessage(channel=job['slack_user_id'], text=text)
 
-@app.route('/run-expiring-jobs', methods=['GET'])
+@app.route('/run-expiring-jobs', methods=['GET', 'POST'])
 def run_expiring_job_reminders_api():
+    print("Running expiring job reminders...")
+    client.chat_postMessage(channel=house_mnager_channel_id, text="Running expiring job reminders...")
     send_expiring_job_reminders()
     return Response(), 200
 
@@ -328,8 +403,10 @@ def expire_incomplete_jobs():
     expire_assignments()
     return
 
-@app.route('/expire-incomplete-jobs', methods=['GET'])
+@app.route('/expire-incomplete-jobs', methods=['GET', 'POST'])
 def expire_incomplete_jobs_api():
+    print("Expiring incomplete jobs...")
+    client.chat_postMessage(channel=house_mnager_channel_id, text="Expiring incomplete jobs...")
     expire_incomplete_jobs()
     return Response(), 200
 
@@ -340,4 +417,4 @@ if __name__ == '__main__':
     # scheduler.add_job(send_expiring_job_reminders, 'cron', hour=1, minute=23)  # 9 AM daily
     # scheduler.add_job(expire_incomplete_jobs, 'cron', hour=0, minute=0)  # Midnight daily
     # scheduler.start()
-    app.run(debug=True)
+    app.run()

@@ -10,10 +10,9 @@ FREQUENCY_CONFIG = {
 }
 
 
-
 def add_job_assignments_to_db(assignments, start_date):
     if isinstance(start_date, str):
-        start_date = datetime.strptime(parse_date(start_date), "%Y-%m-%d",)
+        start_date = datetime.strptime(parse_date(start_date), "%Y-%m-%d")
 
     conn = get_db()
     cursor = conn.cursor()
@@ -23,7 +22,7 @@ def add_job_assignments_to_db(assignments, start_date):
         job_name = assignment["Job Name"]
         username = assignment["Name"]
 
-        # Get job_id + job_type
+        # Get job_id and job_type
         cursor.execute(
             "SELECT job_id, job_type FROM jobs WHERE job_name = ?",
             (job_name,)
@@ -40,9 +39,9 @@ def add_job_assignments_to_db(assignments, start_date):
             print(f"Job type '{job_type}' for job '{job_name}' is invalid, skipping assignment.")
             continue
 
-        # Get slack_user_id
+        # Get user_id (NOT slack_user_id)
         cursor.execute(
-            "SELECT slack_user_id FROM users WHERE username = ?",
+            "SELECT user_id FROM users WHERE username = ?",
             (username,)
         )
         user_row = cursor.fetchone()
@@ -50,7 +49,7 @@ def add_job_assignments_to_db(assignments, start_date):
             print(f"User '{username}' not found, skipping assignment.")
             continue
 
-        slack_user_id = user_row[0]
+        user_id = user_row[0]
 
         config = FREQUENCY_CONFIG[job_type]
         due_at = start_date
@@ -59,14 +58,14 @@ def add_job_assignments_to_db(assignments, start_date):
             cursor.execute(
                 """
                 INSERT INTO active_assignments (
-                    slack_user_id,
+                    user_id,
                     job_id,
                     due_at
                 )
                 VALUES (?, ?, ?)
                 """,
                 (
-                    slack_user_id,
+                    user_id,
                     job_id,
                     due_at.isoformat()
                 )

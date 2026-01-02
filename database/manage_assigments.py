@@ -1,21 +1,15 @@
-
-
 from database.db import get_db
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 def get_expiring_assignments():
     conn = get_db()
     cursor = conn.cursor()
 
-    # Find jobs expiring today
-    today = datetime.now().date()
-    today_str = today.strftime("%Y-%m-%d")
-
     cursor.execute("""
         SELECT
             a.assignment_id,
-            a.slack_user_id,
+            a.user_id,
             j.job_name,
             a.due_at
         FROM active_assignments a
@@ -38,24 +32,26 @@ def expire_active_assignments():
     conn = get_db()
     cursor = conn.cursor()
 
-    # Select expired assignments
     cursor.execute("""
-        SELECT assignment_id, slack_user_id, job_id, due_at, status
+        SELECT assignment_id, user_id, job_id, due_at
         FROM active_assignments
         WHERE datetime(due_at, '+6 days') < datetime('now', 'start of day')
     """)
     expired_assignments = cursor.fetchall()
 
-    for assignment_id, slack_user_id, job_id, due_at, status in expired_assignments:
-
-        # Move to inactive_jobs as EXPIRED
+    for assignment_id, user_id, job_id, due_at in expired_assignments:
         cursor.execute("""
             INSERT OR REPLACE INTO inactive_jobs (
-                assignment_id, slack_user_id, job_id, due_at, status, moved_at
-            ) VALUES (?, ?, ?, ?, 'EXPIRED', CURRENT_TIMESTAMP)
-        """, (assignment_id, slack_user_id, job_id, due_at))
+                assignment_id,
+                user_id,
+                job_id,
+                due_at,
+                status,
+                moved_at
+            )
+            VALUES (?, ?, ?, ?, 'EXPIRED', CURRENT_TIMESTAMP)
+        """, (assignment_id, user_id, job_id, due_at))
 
-        # Remove from active_assignments
         cursor.execute("""
             DELETE FROM active_assignments
             WHERE assignment_id = ?
@@ -65,23 +61,44 @@ def expire_active_assignments():
     conn.close()
 
 
-def get_active_assignments(user_id):
+def get_active_assignments(slack_user_id):
     conn = get_db()
     cursor = conn.cursor()
 
+    # Look up the numeric user_id
+    cursor.execute("SELECT user_id FROM users WHERE slack_user_id = ?", (slack_user_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return []  # Slack ID not found
+    user_id = row[0]
+
+    # Fetch assignments
     cursor.execute("""
         SELECT
             a.assignment_id,
             j.job_name,
             a.due_at,
-            a.slack_user_id,
+            a.user_id,
             a.status
         FROM active_assignments a
         JOIN jobs j ON a.job_id = j.job_id
-        WHERE a.slack_user_id = ?
+        WHERE a.user_id = ?
         ORDER BY a.due_at ASC
     """, (user_id,))
 
-    active_assignments = cursor.fetchall()
+    rows = cursor.fetchall()
     conn.close()
-    return active_assignments
+
+    # Return as list of dicts
+    return [
+        {
+            "assignment_id": r[0],
+            "job_name": r[1],
+            "due_at": r[2],
+            "user_id": r[3],
+            "status": r[4]
+        }
+        for r in rows
+    ]
+

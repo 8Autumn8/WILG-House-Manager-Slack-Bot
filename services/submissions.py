@@ -1,5 +1,5 @@
 from sheets.update_hours_sheet import add_to_submission_logs, get_approved_from_sheet
-from database.job_submissions import add_to_submission_table, get_all_submissions_and_approved_hours, approve_jobs_in_db, reject_jos_in_db
+from database.job_submissions import add_to_submission_table, get_all_submissions_and_approved_hours, approve_jobs_in_db, reject_jobs_in_db
 from database.users import get_all_user_hours
 import slack
 import os
@@ -61,6 +61,6 @@ def submit_hours(
 def sync_hours():
     approved_ids, rejected_ids = get_approved_from_sheet()
     approve_jobs_in_db(approved_ids)
-    reject_jos_in_db(rejected_ids)
+    reject_jobs_in_db(rejected_ids)
     result = get_all_user_hours()
     return result
