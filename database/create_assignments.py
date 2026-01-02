@@ -1,7 +1,6 @@
-from database.db import get_db
-import sqlite3
 from datetime import datetime, timedelta
 from services.formatters import parse_date
+from database.db import get_table, execute_query
 
 FREQUENCY_CONFIG = {
     "DAILY": {"count": 14, "delta": timedelta(days=1)},
@@ -11,66 +10,61 @@ FREQUENCY_CONFIG = {
 
 
 def add_job_assignments_to_db(assignments, start_date):
+    """
+    Adds recurring job assignments for users to Supabase.
+    assignments: list of dicts with keys "Job Name" and "Name"
+    start_date: str ("YYYY-MM-DD") or datetime
+    """
+    # Parse start_date if string
     if isinstance(start_date, str):
         start_date = datetime.strptime(parse_date(start_date), "%Y-%m-%d")
 
-    conn = get_db()
-    cursor = conn.cursor()
-
     for assignment in assignments:
-        print(assignment)
         job_name = assignment["Job Name"]
         username = assignment["Name"]
 
-        # Get job_id and job_type
-        cursor.execute(
-            "SELECT job_id, job_type FROM jobs WHERE job_name = ?",
-            (job_name,)
+        print(f"Processing assignment: {username} → {job_name}")
+
+        # Get job info
+        job_rows = execute_query(
+            "jobs",
+            "select",
+            filters=[("job_name", "eq", job_name)]
         )
-        job_row = cursor.fetchone()
-        if not job_row:
+        if not job_rows:
             print(f"Job '{job_name}' not found, skipping assignment.")
             continue
-
-        job_id, job_type = job_row
-        job_type = job_type.upper()
+        job = job_rows[0]
+        job_id, job_type = job["job_id"], job["job_type"].upper()
 
         if job_type not in FREQUENCY_CONFIG:
             print(f"Job type '{job_type}' for job '{job_name}' is invalid, skipping assignment.")
             continue
 
-        # Get user_id (NOT slack_user_id)
-        cursor.execute(
-            "SELECT user_id FROM users WHERE username = ?",
-            (username,)
+        # Get user_id
+        user_rows = execute_query(
+            "users",
+            "select",
+            filters=[("username", "eq", username)]
         )
-        user_row = cursor.fetchone()
-        if not user_row:
+        if not user_rows:
             print(f"User '{username}' not found, skipping assignment.")
             continue
+        user_id = user_rows[0]["user_id"]
 
-        user_id = user_row[0]
-
+        # Generate recurring assignments
         config = FREQUENCY_CONFIG[job_type]
         due_at = start_date
 
+        records_to_insert = []
         for _ in range(config["count"]):
-            cursor.execute(
-                """
-                INSERT INTO active_assignments (
-                    user_id,
-                    job_id,
-                    due_at
-                )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    user_id,
-                    job_id,
-                    due_at.isoformat()
-                )
-            )
+            records_to_insert.append({
+                "user_id": user_id,
+                "job_id": job_id,
+                "due_at": due_at.isoformat()
+            })
             due_at += config["delta"]
 
-    conn.commit()
-    conn.close()
+        # Insert all at once
+        execute_query("active_assignments", "insert", data=records_to_insert)
+        print(f"Inserted {len(records_to_insert)} assignments for {username} → {job_name}")

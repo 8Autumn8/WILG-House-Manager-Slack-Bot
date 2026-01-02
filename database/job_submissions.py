@@ -1,36 +1,51 @@
-from database.db import get_db
-
+from database.db import execute_query
 
 # ---------- Helpers ----------
 
-def get_user_id(conn, slack_user_id):
-    row = conn.execute(
-        "SELECT user_id FROM users WHERE slack_user_id = ?",
-        (slack_user_id,)
-    ).fetchone()
-    return row[0] if row else None
+def get_user_id(slack_user_id):
+    """Return the user_id for a given Slack ID, or None."""
+    rows = execute_query(
+        "users",
+        "select",
+        filters=[("slack_user_id", "eq", slack_user_id)]
+    )
+    return rows[0]["user_id"] if rows else None
 
 
-def get_user_name_by_id(conn, user_id):
-    row = conn.execute(
-        "SELECT username FROM users WHERE user_id = ?",
-        (user_id,)
-    ).fetchone()
-    return row[0] if row else "Unknown User"
+def get_user_name_by_id(user_id):
+    """Return the username for a given user_id, or 'Unknown User'."""
+    rows = execute_query(
+        "users",
+        "select",
+        filters=[("user_id", "eq", user_id)]
+    )
+    return rows[0]["username"] if rows else "Unknown User"
 
 
-def get_job_name_from_assignment_id(conn, assignment_id):
-    row = conn.execute(
-        """
+def get_job_name_from_assignment_id(assignment_id):
+    """Return the job_name for a given assignment_id."""
+    query = """
         SELECT j.job_name
         FROM active_assignments a
         JOIN jobs j ON a.job_id = j.job_id
-        WHERE a.assignment_id = ?
-        """,
-        (assignment_id,)
-    ).fetchone()
+        WHERE a.assignment_id = %s
+    """
+    # Supabase API does not support raw joins easily; we'll query active_assignments first
+    assignment_rows = execute_query(
+        "active_assignments",
+        "select",
+        filters=[("assignment_id", "eq", assignment_id)]
+    )
+    if not assignment_rows:
+        return None
 
-    return row[0] if row else None
+    job_id = assignment_rows[0]["job_id"]
+    job_rows = execute_query(
+        "jobs",
+        "select",
+        filters=[("job_id", "eq", job_id)]
+    )
+    return job_rows[0]["job_name"] if job_rows else None
 
 
 # ---------- Submissions ----------
@@ -41,146 +56,88 @@ def add_to_submission_table(
     assignment_id,
     date_of_completion,
     submission_time,
-    witness_slack_user_id,
-    comments,
-    channel_id  # unused but kept for compatibility
+    witness_slack_user_id=None,
+    comments=None,
+    channel_id=None  # kept for compatibility
 ):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    user_id = get_user_id(conn, slack_user_id)
-    witness_user_id = get_user_id(conn, witness_slack_user_id)
+    """Add a job submission to Supabase."""
+    user_id = get_user_id(slack_user_id)
+    witness_user_id = get_user_id(witness_slack_user_id) if witness_slack_user_id else None
 
     if user_id is None:
-        conn.close()
         raise ValueError("Submitting user not found")
 
-    cursor.execute(
-        """
-        INSERT INTO job_submissions
-        (user_id, assignment_id, job_hours, date_of_completion, submission_time, witness_user_id, comments)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            user_id,
-            assignment_id,
-            job_hours,
-            date_of_completion,
-            submission_time,
-            witness_user_id,
-            comments
-        )
-    )
+    # Insert submission
+    data = {
+        "user_id": user_id,
+        "assignment_id": assignment_id,
+        "job_hours": job_hours,
+        "date_of_completion": date_of_completion,
+        "submission_time": submission_time,
+        "witness_user_id": witness_user_id,
+        "comments": comments,
+        "approved": None
+    }
+    inserted = execute_query("job_submissions", "insert", data=data)
+    submission_id = inserted[0]["submission_id"] if inserted else None
 
-    conn.commit()
-    submission_id = cursor.lastrowid
+    user_name = get_user_name_by_id(user_id)
+    job_name = get_job_name_from_assignment_id(assignment_id)
+    witness_name = get_user_name_by_id(witness_user_id) if witness_user_id else None
 
-    user_name = get_user_name_by_id(conn, user_id)
-    job_name = get_job_name_from_assignment_id(conn, assignment_id)
-    witness_name = (
-        get_user_name_by_id(conn, witness_user_id)
-        if witness_user_id else None
-    )
-
-    conn.close()
     return submission_id, user_name, job_name, witness_name
 
 
 # ---------- Queries ----------
 
 def get_all_submissions_and_approved_hours(slack_user_id=None):
-    conn = get_db()
-    cursor = conn.cursor()
-
-    params = []
-    user_filter = ""
+    """Return submissions and total approved hours."""
+    filters = []
+    user_id = None
 
     if slack_user_id:
-        user_id = get_user_id(conn, slack_user_id)
-        user_filter = "WHERE js.user_id = ?"
-        params.append(user_id)
+        user_id = get_user_id(slack_user_id)
+        if user_id:
+            filters.append(("user_id", "eq", user_id))
 
-    cursor.execute(
-        f"""
-        SELECT
-            js.submission_id,
-            j.job_name,
-            js.job_hours,
-            js.approved,
-            js.submission_time
-        FROM job_submissions js
-        LEFT JOIN active_assignments a
-            ON a.assignment_id = js.assignment_id
-        LEFT JOIN inactive_jobs i
-            ON i.assignment_id = js.assignment_id
-        LEFT JOIN completed_job_history h
-            ON h.assignment_id = js.assignment_id
-        JOIN jobs j
-            ON j.job_id = COALESCE(a.job_id, i.job_id, h.job_id)
-        {user_filter}
-        ORDER BY js.submission_time DESC
-        """,
-        params
+    submissions = execute_query("job_submissions", "select", filters=filters)
+
+    # Calculate approved hours
+    approved_rows = execute_query(
+        "job_submissions",
+        "select",
+        filters=[("approved", "eq", "APPROVED")] + (filters if user_id else [])
     )
+    approved_hours = sum(r["job_hours"] for r in approved_rows) if approved_rows else 0
 
-    submissions = [dict(row) for row in cursor.fetchall()]
-
-    sum_query = """
-        SELECT COALESCE(SUM(job_hours), 0)
-        FROM job_submissions
-        WHERE approved = 'APPROVED'
-    """
-    sum_params = []
-
-    if slack_user_id:
-        sum_query += " AND user_id = ?"
-        sum_params.append(user_id)
-
-    cursor.execute(sum_query, sum_params)
-    approved_hours = cursor.fetchone()[0]
-
-    conn.close()
     return submissions, approved_hours
 
 
 # ---------- Approval / Rejection ----------
 
 def reject_jobs_in_db(rejected_ids):
+    """Mark submissions as REJECTED."""
     if not rejected_ids:
         return
 
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        f"""
-        UPDATE job_submissions
-        SET approved = 'REJECTED'
-        WHERE submission_id IN ({','.join(['?'] * len(rejected_ids))})
-        """,
-        rejected_ids
-    )
-
-    conn.commit()
-    conn.close()
+    for submission_id in rejected_ids:
+        execute_query(
+            "job_submissions",
+            "update",
+            data={"approved": "REJECTED"},
+            filters=[("submission_id", "eq", submission_id)]
+        )
 
 
 def approve_jobs_in_db(approved_ids):
-    print(approved_ids)
+    """Mark submissions as APPROVED."""
     if not approved_ids:
         return
 
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        f"""
-        UPDATE job_submissions
-        SET approved = 'APPROVED'
-        WHERE submission_id IN ({','.join(['?'] * len(approved_ids))})
-        """,
-        approved_ids
-    )
-
-    conn.commit()
-    conn.close()
+    for submission_id in approved_ids:
+        execute_query(
+            "job_submissions",
+            "update",
+            data={"approved": "APPROVED"},
+            filters=[("submission_id", "eq", submission_id)]
+        )

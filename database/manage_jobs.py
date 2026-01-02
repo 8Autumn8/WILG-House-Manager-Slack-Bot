@@ -1,38 +1,41 @@
-from database.db import get_db
-import sqlite3
+from database.db import execute_query
 
 def add_job_to_db(jobs):
-    conn = get_db()
-    cursor = conn.cursor()
-
+    """
+    Add or update jobs in the Supabase 'jobs' table.
+    If a job with the same job_id exists, update its fields; otherwise insert.
+    """
     for job in jobs:
-        cursor.execute(
-            """
-            INSERT INTO jobs (
-                job_id,
-                job_name,
-                job_description,
-                num_hours,
-                job_type,
-                due_by_time
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(job_id) DO UPDATE SET
-                job_name = excluded.job_name,
-                job_description = excluded.job_description,
-                num_hours = excluded.num_hours,
-                job_type = excluded.job_type,
-                due_by_time = excluded.due_by_time
-            """,
-            (
-                job["Job ID"],
-                job["Job Name"],
-                job.get("Job Description"),
-                job.get("Num Hours"),
-                job["Job Type"],
-                job["Due By Time"],
-            )
+        job_id = job["Job ID"]
+
+        # Check if job exists
+        existing = execute_query(
+            "jobs",
+            "select",
+            filters=[("job_id", "eq", job_id)]
         )
 
-    conn.commit()
-    conn.close()
+        job_data = {
+            "job_id": job_id,
+            "job_name": job["Job Name"],
+            "job_description": job.get("Job Description"),
+            "num_hours": job.get("Num Hours"),
+            "job_type": job["Job Type"],
+            "due_by_time": job.get("Due By Time")
+        }
+
+        if existing:
+            # Update existing job
+            execute_query(
+                "jobs",
+                "update",
+                data=job_data,
+                filters=[("job_id", "eq", job_id)]
+            )
+        else:
+            # Insert new job
+            execute_query(
+                "jobs",
+                "insert",
+                data=job_data
+            )

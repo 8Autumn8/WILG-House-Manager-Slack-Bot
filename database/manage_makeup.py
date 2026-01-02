@@ -1,178 +1,150 @@
-from database.db import get_db
 from datetime import datetime, timedelta
+from database.db import execute_query, get_user_id
 
+# ---------- Expire Makeup Jobs ----------
 
 def db_expire_makeup_jobs():
     """
     Move expired makeup jobs to inactive_jobs with status 'EXPIRED',
     then remove them from makeup_jobs.
     """
-    conn = get_db()
-    cursor = conn.cursor()
+    all_makeups = execute_query("makeup_jobs", "select")
 
-    cursor.execute("""
-        SELECT original_assignment_id, job_id, due_at
-        FROM makeup_jobs
-        WHERE datetime(due_at) < datetime('now')
-    """)
-    expired_makeups = cursor.fetchall()
+    now = datetime.utcnow()
 
-    for assignment_id, job_id, due_at in expired_makeups:
-        cursor.execute("""
-            INSERT OR REPLACE INTO inactive_jobs (
-                assignment_id,
-                user_id,
-                job_id,
-                due_at,
-                status,
-                moved_at
+    for m in all_makeups:
+        due_at = datetime.fromisoformat(m["due_at"])
+        if due_at < now:
+            # Insert into inactive_jobs
+            execute_query(
+                "inactive_jobs",
+                "insert",
+                data={
+                    "assignment_id": m["original_assignment_id"],
+                    "user_id": None,
+                    "job_id": m["job_id"],
+                    "due_at": m["due_at"],
+                    "status": "EXPIRED",
+                    "moved_at": now.isoformat()
+                }
             )
-            VALUES (?, NULL, ?, ?, 'EXPIRED', CURRENT_TIMESTAMP)
-        """, (assignment_id, job_id, due_at))
+            # Delete from makeup_jobs
+            execute_query(
+                "makeup_jobs",
+                "delete",
+                filters=[("original_assignment_id", "eq", m["original_assignment_id"])]
+            )
 
-        cursor.execute("""
-            DELETE FROM makeup_jobs
-            WHERE original_assignment_id = ?
-        """, (assignment_id,))
 
-    conn.commit()
-    conn.close()
-
+# ---------- Give Up Makeup Job ----------
 
 def giveup_makeup_job(slack_user_id, assignment_id):
     """
     User gives up a job for makeup.
-    Accepts Slack user ID and converts to internal user_id.
+    Returns metadata about the job.
     """
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Lookup numeric user_id
-    cursor.execute("SELECT user_id FROM users WHERE slack_user_id = ?", (slack_user_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
+    user_id = get_user_id(slack_user_id)
+    if not user_id:
         raise ValueError("Slack user ID not found.")
-    user_id = row[0]
 
-    # Fetch assignment + job metadata
-    cursor.execute("""
-        SELECT 
-            a.job_id,
-            a.due_at,
-            j.job_name,
-            j.job_description
-        FROM active_assignments a
-        JOIN jobs j ON j.job_id = a.job_id
-        WHERE a.assignment_id = ? AND a.user_id = ?
-    """, (assignment_id, user_id))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
+    # Fetch active assignment
+    assignments = execute_query(
+        "active_assignments",
+        "select",
+        filters=[("assignment_id", "eq", assignment_id), ("user_id", "eq", user_id)]
+    )
+    if not assignments:
         raise ValueError("Assignment not found or already removed.")
 
-    job_id, due_at, job_name, job_description = row
+    assignment = assignments[0]
 
-    # Determine lateness
-    is_late_makeup = datetime.utcnow() > (
-        datetime.fromisoformat(due_at) - timedelta(hours=24)
+    job_rows = execute_query(
+        "jobs",
+        "select",
+        filters=[("job_id", "eq", assignment["job_id"])]
     )
+    job = job_rows[0] if job_rows else {}
+
+    due_at = datetime.fromisoformat(assignment["due_at"])
+    is_late_makeup = datetime.utcnow() > (due_at - timedelta(hours=24))
+
+    # Insert into makeup_jobs
+    makeup_data = {
+        "original_assignment_id": assignment_id,
+        "job_id": assignment["job_id"],
+        "due_at": assignment["due_at"],
+        "created_at": datetime.utcnow().isoformat()
+    }
 
     if is_late_makeup:
-        cursor.execute("""
-            INSERT INTO makeup_jobs (
-                original_assignment_id,
-                job_id,
-                prev_user_id,
-                due_at,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """, (assignment_id, job_id, user_id, due_at))
-    else:
-        cursor.execute("""
-            INSERT INTO makeup_jobs (
-                original_assignment_id,
-                job_id,
-                due_at,
-                created_at
-            )
-            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-        """, (assignment_id, job_id, due_at))
+        makeup_data["prev_user_id"] = user_id
+
+    execute_query("makeup_jobs", "insert", data=makeup_data)
 
     # Remove from active_assignments
-    cursor.execute("""
-        DELETE FROM active_assignments
-        WHERE assignment_id = ? AND user_id = ?
-    """, (assignment_id, user_id))
-
-    conn.commit()
-    conn.close()
+    execute_query(
+        "active_assignments",
+        "delete",
+        filters=[("assignment_id", "eq", assignment_id), ("user_id", "eq", user_id)]
+    )
 
     return {
         "assignment_id": assignment_id,
-        "job_id": job_id,
-        "job_name": job_name,
-        "job_description": job_description,
-        "due_at": due_at,
+        "job_id": assignment["job_id"],
+        "job_name": job.get("job_name"),
+        "job_description": job.get("job_description"),
+        "due_at": assignment["due_at"],
         "is_late_makeup": is_late_makeup
     }
 
 
+# ---------- Claim Makeup Job ----------
+
 def claim_makeup_job(slack_user_id, assignment_id):
     """
     User claims a makeup job.
-    Accepts Slack user ID and converts to internal user_id.
     """
-    conn = get_db()
-    cursor = conn.cursor()
-
-    # Lookup numeric user_id
-    cursor.execute("SELECT user_id FROM users WHERE slack_user_id = ?", (slack_user_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
+    user_id = get_user_id(slack_user_id)
+    if not user_id:
         raise ValueError("Slack user ID not found.")
-    user_id = row[0]
 
-    # Fetch makeup job details
-    cursor.execute("""
-        SELECT 
-            m.original_assignment_id,
-            m.job_id,
-            j.job_name,
-            m.due_at
-        FROM makeup_jobs m
-        JOIN jobs j ON j.job_id = m.job_id
-        WHERE m.original_assignment_id = ?
-    """, (assignment_id,))
-    makeup_job = cursor.fetchone()
-    if not makeup_job:
-        conn.close()
+    # Fetch makeup job
+    makeups = execute_query(
+        "makeup_jobs",
+        "select",
+        filters=[("original_assignment_id", "eq", assignment_id)]
+    )
+    if not makeups:
         raise ValueError("Makeup job not found.")
 
-    assignment_id, job_id, job_name, due_at = makeup_job
+    makeup = makeups[0]
 
     # Insert into active_assignments
-    cursor.execute("""
-        INSERT INTO active_assignments (
-            assignment_id,
-            user_id,
-            job_id,
-            due_at,
-            status
-        )
-        VALUES (?, ?, ?, ?, 'ASSIGNED')
-    """, (assignment_id, user_id, job_id, due_at))
+    execute_query(
+        "active_assignments",
+        "insert",
+        data={
+            "assignment_id": assignment_id,
+            "user_id": user_id,
+            "job_id": makeup["job_id"],
+            "due_at": makeup["due_at"],
+            "status": "ASSIGNED"
+        }
+    )
 
     # Remove from makeup_jobs
-    cursor.execute("""
-        DELETE FROM makeup_jobs
-        WHERE original_assignment_id = ?
-    """, (assignment_id,))
+    execute_query(
+        "makeup_jobs",
+        "delete",
+        filters=[("original_assignment_id", "eq", assignment_id)]
+    )
 
-    conn.commit()
-    conn.close()
+    job_rows = execute_query(
+        "jobs",
+        "select",
+        filters=[("job_id", "eq", makeup["job_id"])]
+    )
+    job_name = job_rows[0]["job_name"] if job_rows else "Unknown Job"
 
     return {
         "result": "Makeup job claimed successfully.",
@@ -180,38 +152,28 @@ def claim_makeup_job(slack_user_id, assignment_id):
     }
 
 
+# ---------- See Makeup Jobs ----------
 
 def db_see_makeup_jobs():
     """
     Retrieve all makeup jobs currently available.
     """
-    conn = get_db()
-    cursor = conn.cursor()
+    makeups = execute_query("makeup_jobs", "select")
 
-    cursor.execute("""
-        SELECT 
-            m.original_assignment_id,
-            m.job_id,
-            j.job_name,
-            j.job_description,
-            m.due_at,
-            m.created_at
-        FROM makeup_jobs m
-        JOIN jobs j ON j.job_id = m.job_id
-        ORDER BY m.created_at ASC
-    """)
-    makeup_jobs = cursor.fetchall()
-    conn.close()
+    results = []
+    for m in makeups:
+        job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", m["job_id"])])
+        job = job_rows[0] if job_rows else {}
 
-    return [
-        {
-            "original_assignment_id": assignment_id,
-            "job_id": job_id,
-            "job_name": job_name,
-            "job_description": job_description,
-            "due_at": due_at,
-            "created_at": created_at
-        }
-        for assignment_id, job_id, job_name, job_description, due_at, created_at
-        in makeup_jobs
-    ]
+        results.append({
+            "original_assignment_id": m["original_assignment_id"],
+            "job_id": m["job_id"],
+            "job_name": job.get("job_name"),
+            "job_description": job.get("job_description"),
+            "due_at": m["due_at"],
+            "created_at": m.get("created_at")
+        })
+
+    # Sort by created_at ascending
+    results.sort(key=lambda r: r["created_at"] or "")
+    return results

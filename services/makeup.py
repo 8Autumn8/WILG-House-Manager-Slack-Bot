@@ -1,4 +1,3 @@
-from database.db import get_db
 from database.manage_makeup import giveup_makeup_job, db_expire_makeup_jobs, claim_makeup_job, db_see_makeup_jobs
 
 def giveup_job_for_makeup(user_id, assignment_id):
@@ -28,5 +27,5 @@ def expire_makeup_jobs():
 
 
 
-def claim_job():
-    conn = get_db()
+# def claim_job():
+#     conn = get_db()
