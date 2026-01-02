@@ -6,8 +6,8 @@ from flask import Flask, request, Response, jsonify
 from slackeventsapi import SlackEventAdapter
 
 
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
+#env_path = Path('.') / '.env'
+load_dotenv()
 
 
 def init_db(db_path="house_manager.db"):

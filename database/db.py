@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from database.init_db import init_db
 
 # Load environment variables
-env_path = Path('.') / '.env'
-load_dotenv(dotenv_path=env_path)
+#env_path = Path('.') / '.env'
+load_dotenv()
 
 # Use Render persistent storage
 db_dir = os.getenv("RENDER_DATA_DIR", ".")
