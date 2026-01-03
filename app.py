@@ -135,7 +135,7 @@ def claim_job_for_makeup_background(channel_id, user_id, assignment_id):
     if not result:
         message = "❌ Could not claim job for makeup. Please check the assignment ID is still available for makeup and try again."
     else:
-        message = f"✅ Job claimed for makeup: {result['job_name']}"
+        message = f"✅ Job claimed for makeup: {result['job_name']} due @ {result['due_at']}"
 
     client.chat_postMessage(
         channel=channel_id,
@@ -161,7 +161,8 @@ def claim_job_makeup_job_api():
 
 MAKEUP_HOUR_CHANNEL = os.getenv("MAKEUP_HOUR_CHANNEL_ID")
 def giveup_job_for_makeup_background(channel_id, user_id, assignment_id):
-    print(channel_id)
+    # print("CHANNEL,", channel_id)
+    # print("MAKEUP,", MAKEUP_HOUR_CHANNEL)
     result = giveup_job_for_makeup(user_id, assignment_id)
     if not result:
         message = "❌ Could not give up job for makeup. Please check the assignment ID and try again."
@@ -186,14 +187,14 @@ def giveup_job_for_makeup_background(channel_id, user_id, assignment_id):
 @app.route('/giveup-job-for-makeup', methods=['POST'])
 def giveup_job_for_makeup_api():
     data = request.form
-    print(data)
+    #print(data)
     user_id = data.get('user_id')
     username = data.get('user_name')
     channel_id = data.get('channel_id')
     assignmnet_id = data.get('text')
     message = f"Giving up job for makeup..."
     response = client.chat_postMessage(channel=channel_id, text=message)
-    print(data)
+    #print(data)
     
     threading.Thread(
         target=giveup_job_for_makeup_background,
@@ -422,4 +423,4 @@ if __name__ == '__main__':
     # scheduler.add_job(send_expiring_job_reminders, 'cron', hour=1, minute=23)  # 9 AM daily
     # scheduler.add_job(expire_incomplete_jobs, 'cron', hour=0, minute=0)  # Midnight daily
     # scheduler.start()
-    app.run()
+    app.run(debug=True)

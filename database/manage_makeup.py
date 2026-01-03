@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List
-from database.db import execute_query, get_user_id
-
+from database.db import execute_query, get_user_id, get_job_id
+import pytz
 ET_OFFSET = timezone(timedelta(hours=-5))
 
 # ---------- Expire Makeup Jobs ----------
@@ -56,20 +56,25 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     )
     if not assignments:
         raise ValueError("Assignment not found or already removed.")
-
+    print("USER ID,", user_id)
     assignment = assignments[0]
-
+    job_id = get_job_id(assignment_id)
+    print("job_id", job_id)
     # Check job info
-    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", assignment["job_id"])])
+    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", job_id)])
     job = job_rows[0] if job_rows else {}
 
+    ET = pytz.timezone("US/Eastern")  # ET_OFFSET equivalent
+
+    # Parse ISO string as naive, then localize to ET
     due_at = datetime.fromisoformat(assignment["due_at"])
-    is_late_makeup = datetime.now(ET_OFFSET) > (due_at - timedelta(hours=24))
+    due_at = ET.localize(due_at)  # make it timezone-aware
+
+    is_late_makeup = datetime.now(ET) > (due_at - timedelta(hours=24))
 
     # Insert into makeup_jobs
     makeup_data = {
         "original_assignment_id": assignment_id,
-        "job_id": assignment["job_id"],
         "due_at": assignment["due_at"],
         "created_at": datetime.now(ET_OFFSET).isoformat()
     }
@@ -88,7 +93,7 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
 
     return {
         "assignment_id": assignment_id,
-        "job_id": assignment["job_id"],
+        "job_id": job_id,
         "job_name": job.get("job_name", "Unknown Job"),
         "job_description": job.get("job_description"),
         "due_at": assignment["due_at"],
@@ -119,12 +124,11 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
         data={
             "assignment_id": assignment_id,
             "user_id": user_id,
-            "job_id": makeup["job_id"],
             "due_at": makeup["due_at"],
             "status": "ASSIGNED"
         }
     )
-
+    
     # Remove from makeup_jobs
     execute_query(
         "makeup_jobs",
@@ -133,12 +137,14 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     )
 
     # Get job name
-    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", makeup["job_id"])])
+    job_id = get_job_id(assignment_id)
+    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", job_id)])
     job_name = job_rows[0]["job_name"] if job_rows else "Unknown Job"
 
     return {
         "result": "Makeup job claimed successfully.",
-        "job_name": job_name
+        "job_name": job_name,
+        "due_at": makeup["due_at"]
     }
 
 # ---------- See Makeup Jobs ----------
@@ -151,12 +157,13 @@ def db_see_makeup_jobs() -> List[Dict]:
 
     results = []
     for m in makeups:
-        job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", m["job_id"])])
+        job_id = get_job_id(m["original_assignment_id"])
+        job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", job_id)])
         job = job_rows[0] if job_rows else {}
 
         results.append({
             "original_assignment_id": m["original_assignment_id"],
-            "job_id": m["job_id"],
+            "job_id": job_id,
             "job_name": job.get("job_name", "Unknown Job"),
             "job_description": job.get("job_description"),
             "due_at": m["due_at"],
@@ -164,5 +171,5 @@ def db_see_makeup_jobs() -> List[Dict]:
         })
 
     # Sort by created_at ascending
-    results.sort(key=lambda r: r["created_at"] or "")
+    results.sort(key=lambda r: r["due_at"] or "")
     return results

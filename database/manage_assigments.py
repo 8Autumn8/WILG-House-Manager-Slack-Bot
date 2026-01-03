@@ -89,11 +89,7 @@ def get_active_assignments(slack_user_id: int):
     - status
     """
     # Step 1: Get all active assignments for this user
-    user_id = execute_query(
-        "users",
-        "select",
-        filters=[("slack_user_id", "eq", slack_user_id)]
-    )[0]
+    user_id = get_user_id(slack_user_id)
 
     active_assignments = execute_query(
         "active_assignments",
@@ -149,4 +145,5 @@ def get_active_assignments(slack_user_id: int):
             "status": assignment.get("status")
         })
 
+    results.sort(key=lambda r: r["due_at"] or "")
     return results

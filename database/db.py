@@ -24,6 +24,7 @@ def get_table(table_name: str):
     """
     return supabase.table(table_name)
 
+
 def execute_query(table_name: str, query_type: str, data=None, filters=None):
     """
     Generalized query executor
@@ -68,3 +69,7 @@ def get_user_id(slack_user_id):
     """
     rows = execute_query("users", "select", filters=[("slack_user_id", "eq", slack_user_id)])
     return rows[0]["user_id"] if rows else None
+
+def get_job_id(assignment_id):
+    rows = execute_query("assignment_jobs", "select", filters=[("assignment_id", "eq", assignment_id)])
+    return rows[0]["job_id"] if rows else None

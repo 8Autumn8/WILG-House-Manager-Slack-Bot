@@ -1,16 +1,6 @@
-from database.db import execute_query
+from database.db import execute_query, get_job_id, get_user_id
 
 # ---------- User Helpers ----------
-
-def get_user_id(slack_user_id: str) -> int | None:
-    """Return the user_id for a given Slack ID, or None if not found."""
-    rows = execute_query(
-        "users",
-        "select",
-        filters=[("slack_user_id", "eq", slack_user_id)]
-    )
-    return rows[0]["user_id"] if rows else None
-
 
 def get_user_name_by_id(user_id: int) -> str:
     """Return the username for a given user_id, or 'Unknown User' if not found."""
@@ -21,25 +11,13 @@ def get_user_name_by_id(user_id: int) -> str:
     )
     return rows[0]["username"] if rows else "Unknown User"
 
-
-def get_job_name_from_assignment_id(assignment_id: int) -> str | None:
-    """Return the job_name for a given assignment_id."""
-    assignment_rows = execute_query(
-        "active_assignments",
-        "select",
-        filters=[("assignment_id", "eq", assignment_id)]
-    )
-    if not assignment_rows:
-        return None
-
-    job_id = assignment_rows[0]["job_id"]
-    job_rows = execute_query(
+def get_job_name_from_job_id(job_id):
+    rows = execute_query(
         "jobs",
         "select",
         filters=[("job_id", "eq", job_id)]
     )
-    return job_rows[0]["job_name"] if job_rows else None
-
+    return rows[0]["job_name"] if rows else "Unkown Job"
 
 # ---------- Submissions ----------
 
@@ -78,7 +56,7 @@ def add_to_submission_table(
     submission_id = inserted[0]["submission_id"] if inserted else None
 
     user_name = get_user_name_by_id(user_id)
-    job_name = get_job_name_from_assignment_id(assignment_id)
+    job_name = get_job_id(assignment_id)
     witness_name = get_user_name_by_id(witness_user_id) if witness_user_id else None
 
     return submission_id, user_name, job_name, witness_name
@@ -100,8 +78,10 @@ def get_all_submissions_and_approved_hours(slack_user_id: str | None = None) -> 
     submissions = execute_query("job_submissions", "select", filters=filters)
 
     approved_hours = 0
+    
     for submission in submissions:
-        submission["job_name"] = get_job_name_from_assignment_id(submission["assignment_id"]) or "Unknown"
+        job_id = get_job_id(submission["assignment_id"])
+        submission["job_name"] = get_job_name_from_job_id(job_id) or "Unknown"
         if submission.get("approved") == "APPROVED":
             approved_hours += submission.get("job_hours", 0) or 0
 
