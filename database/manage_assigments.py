@@ -58,7 +58,6 @@ def expire_active_assignments(expire_after_days: int = 6):
                 data={
                     "assignment_id": assignment["assignment_id"],
                     "user_id": assignment["user_id"],
-                    "job_id": assignment["job_id"],
                     "due_at": assignment["due_at"],
                     "status": "EXPIRED",
                     "moved_at": datetime.utcnow().isoformat()
@@ -74,38 +73,74 @@ def expire_active_assignments(expire_after_days: int = 6):
 
 # ---------- Active Assignments for a User ----------
 
-def get_active_assignments(slack_user_id: str) -> list[dict]:
-    """
-    Fetch all active assignments for a user, returned as a list of dicts.
-    Each dict includes assignment_id, job_name, due_at, user_id, and status.
-    """
-    user_id = get_user_id(slack_user_id)
-    if not user_id:
-        return []
+# services/assignments.py
+from database.db import execute_query
 
-    assignments = execute_query(
+def get_active_assignments(user_id: int):
+    """
+    Get all active assignments for a user, including job info.
+    Returns a list of dicts with:
+    - assignment_id
+    - job_id
+    - job_name
+    - job_type
+    - num_hours
+    - due_at
+    - status
+    """
+    # Step 1: Get all active assignments for this user
+    active_assignments = execute_query(
         "active_assignments",
         "select",
         filters=[("user_id", "eq", user_id)]
     )
 
+    if not active_assignments:
+        return []
+
     results = []
-    for assignment in assignments:
-        job_rows = execute_query(
+
+    # Step 2: For each assignment, get job_id from assignment_jobs, then job info
+    for assignment in active_assignments:
+        assignment_id = assignment.get("assignment_id")
+        if not assignment_id:
+            continue  # skip if somehow missing
+
+        # Get the job_id from assignment_jobs
+        assignment_job = execute_query(
+            "assignment_jobs",
+            "select",
+            filters=[("assignment_id", "eq", assignment_id)]
+        )
+
+        if not assignment_job:
+            continue  # skip if no mapping found
+
+        job_id = assignment_job[0].get("job_id")
+        if not job_id:
+            continue  # skip if job_id missing
+
+        # Get job info
+        job_info = execute_query(
             "jobs",
             "select",
-            filters=[("job_id", "eq", assignment["job_id"])]
+            filters=[("job_id", "eq", job_id)]
         )
-        job_name = job_rows[0]["job_name"] if job_rows else "Unknown Job"
 
+        if not job_info:
+            continue
+
+        job = job_info[0]
+
+        # Combine into a single dict
         results.append({
-            "assignment_id": assignment["assignment_id"],
-            "job_name": job_name,
-            "due_at": assignment["due_at"],
-            "user_id": assignment["user_id"],
-            "status": assignment.get("status", "UNKNOWN")
+            "assignment_id": assignment_id,
+            "job_id": job_id,
+            "job_name": job.get("job_name"),
+            "job_type": job.get("job_type"),
+            "num_hours": job.get("num_hours"),
+            "due_at": assignment.get("due_at"),
+            "status": assignment.get("status")
         })
 
-    # Sort by due date ascending
-    results.sort(key=lambda r: r["due_at"])
     return results
