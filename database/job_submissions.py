@@ -106,7 +106,8 @@ def get_all_submissions_and_approved_hours(slack_user_id=None):
     approved_rows = execute_query(
         "job_submissions",
         "select",
-        filters=[("approved", "eq", "APPROVED")] + (filters if user_id else [])
+        filters=[("approved", "eq", "APPROVED")] + (filters if user_id else []),
+        join=[("jobs", "job_id", "job_id")]  # pseudo-code, depends on your execute_query
     )
     approved_hours = sum(r["job_hours"] for r in approved_rows) if approved_rows else 0
 
