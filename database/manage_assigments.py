@@ -76,7 +76,7 @@ def expire_active_assignments(expire_after_days: int = 6):
 # services/assignments.py
 from database.db import execute_query
 
-def get_active_assignments(user_id: int):
+def get_active_assignments(slack_user_id: int):
     """
     Get all active assignments for a user, including job info.
     Returns a list of dicts with:
@@ -92,7 +92,7 @@ def get_active_assignments(user_id: int):
     active_assignments = execute_query(
         "active_assignments",
         "select",
-        filters=[("user_id", "eq", user_id)]
+        filters=[("slack_user_id", "eq", slack_user_id)]
     )
 
     if not active_assignments:
