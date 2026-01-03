@@ -89,10 +89,16 @@ def get_active_assignments(slack_user_id: int):
     - status
     """
     # Step 1: Get all active assignments for this user
+    user_id = execute_query(
+        "users",
+        "select",
+        filters=[("slack_user_id", "eq", slack_user_id)]
+    )[0]
+
     active_assignments = execute_query(
         "active_assignments",
         "select",
-        filters=[("slack_user_id", "eq", slack_user_id)]
+        filters=[("user_id", "eq", user_id)]
     )
 
     if not active_assignments:
