@@ -135,6 +135,7 @@ def approve_jobs_in_db(approved_ids):
         return
 
     for submission_id in approved_ids:
+        print("Approving submission ID:", submission_id)
         execute_query(
             "job_submissions",
             "update",

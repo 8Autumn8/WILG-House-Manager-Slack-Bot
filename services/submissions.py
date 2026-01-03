@@ -60,6 +60,7 @@ def submit_hours(
     
 def sync_hours():
     approved_ids, rejected_ids = get_approved_from_sheet()
+    print("Approving IDs:", approved_ids)
     approve_jobs_in_db(approved_ids)
     reject_jobs_in_db(rejected_ids)
     result = get_all_user_hours()
