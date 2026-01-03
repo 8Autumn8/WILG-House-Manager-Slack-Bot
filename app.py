@@ -23,15 +23,6 @@ slack_event_adapter = SlackEventAdapter(os.getenv('SIGNING_SECRET'), '/slack/eve
 BOT_ID = client.api_call("auth.test")['user_id']
 
 
-def send_slack_message(channel, message):
-    response = client.chat_postMessage(channel=channel, text=message)
-    if response['ok']:
-        print("Message sent successfully!")
-    else:
-        print("Failed to send message:", response['error'])
-
-
-
 @slack_event_adapter.on('message')
 def message(payload):
     event = payload.get('event', {})
@@ -87,7 +78,7 @@ def submit_hours_background(user_id, assignment_id, job_hours, date_of_completio
 @app.route('/submit-hour', methods=['POST'])
 def submit_hour_api():
     data = request.form
-    print(data)
+    #print(data)
     commands = data.get('text', '').split()
     if len(commands) < 4:
         return jsonify({
@@ -101,7 +92,7 @@ def submit_hour_api():
     assignment_id = int(commands[0])
     job_hours = float(commands[1])
     date_of_completion = parse_date(commands[2])
-    print(date_of_completion)
+    #print(date_of_completion)
     if date_of_completion is None:
         return jsonify({
             "response_type": "ephemeral",
@@ -267,7 +258,7 @@ def get_my_hour_submissions_background(user_id, channel_id):
     table_text = format_submissions_table(submissions, approved_hours)
     blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions")
 
-    print(blocks)
+    #print(blocks)
     #submissions_message = format_submissions_table(submissions, approved_hours)
     client.chat_postMessage(
         channel=channel_id,
@@ -350,7 +341,7 @@ def generate_user_table_background(channel_id):
 def generate_user_table_api():
     data = request.form
     user_id = data.get('user_id')
-    print(user_id)
+    #print(user_id)
     if user_id not in ADMINS:
         return jsonify({
             "response_type": "ephemeral",
@@ -359,7 +350,7 @@ def generate_user_table_api():
     channel_id = data.get('channel_id')
     message = f"Creating user table..."
     response = client.chat_postMessage(channel=channel_id, text=message)
-    print(data)
+    #print(data)
 
     threading.Thread(
         target=generate_user_table_background,
@@ -432,7 +423,7 @@ def send_expiring_job_reminders():
     expiring_jobs = get_expiring_jobs()
     print(expiring_jobs)
     for job in expiring_jobs:
-        text = f"⚠️ Job *{job['job_name']}* is expiring tonight! Please submit your hours. After tonight you will forfeit the hours for this job."
+        text = f"⚠️ Job *{job['job_name']}* is expiring in a few hours! Please submit your hours, otherwise you will forfeit the hours for this job."
         client.chat_postMessage(channel=job['slack_user_id'], text=text)
 
 @app.route('/run-expiring-jobs', methods=['GET', 'POST'])
