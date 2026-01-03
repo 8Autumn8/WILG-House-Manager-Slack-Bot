@@ -1,5 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, List
 from database.db import execute_query, get_user_id
+
+ET_OFFSET = timezone(timedelta(hours=-5))
 
 # ---------- Expire Makeup Jobs ----------
 
@@ -9,8 +12,7 @@ def db_expire_makeup_jobs():
     then remove them from makeup_jobs.
     """
     all_makeups = execute_query("makeup_jobs", "select")
-
-    now = datetime.utcnow()
+    now = datetime.now(ET_OFFSET)
 
     for m in all_makeups:
         due_at = datetime.fromisoformat(m["due_at"])
@@ -35,10 +37,9 @@ def db_expire_makeup_jobs():
                 filters=[("original_assignment_id", "eq", m["original_assignment_id"])]
             )
 
-
 # ---------- Give Up Makeup Job ----------
 
-def giveup_makeup_job(slack_user_id, assignment_id):
+def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     """
     User gives up a job for makeup.
     Returns metadata about the job.
@@ -58,22 +59,19 @@ def giveup_makeup_job(slack_user_id, assignment_id):
 
     assignment = assignments[0]
 
-    job_rows = execute_query(
-        "jobs",
-        "select",
-        filters=[("job_id", "eq", assignment["job_id"])]
-    )
+    # Check job info
+    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", assignment["job_id"])])
     job = job_rows[0] if job_rows else {}
 
     due_at = datetime.fromisoformat(assignment["due_at"])
-    is_late_makeup = datetime.utcnow() > (due_at - timedelta(hours=24))
+    is_late_makeup = datetime.now(ET_OFFSET) > (due_at - timedelta(hours=24))
 
     # Insert into makeup_jobs
     makeup_data = {
         "original_assignment_id": assignment_id,
         "job_id": assignment["job_id"],
         "due_at": assignment["due_at"],
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(ET_OFFSET).isoformat()
     }
 
     if is_late_makeup:
@@ -91,16 +89,15 @@ def giveup_makeup_job(slack_user_id, assignment_id):
     return {
         "assignment_id": assignment_id,
         "job_id": assignment["job_id"],
-        "job_name": job.get("job_name"),
+        "job_name": job.get("job_name", "Unknown Job"),
         "job_description": job.get("job_description"),
         "due_at": assignment["due_at"],
         "is_late_makeup": is_late_makeup
     }
 
-
 # ---------- Claim Makeup Job ----------
 
-def claim_makeup_job(slack_user_id, assignment_id):
+def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     """
     User claims a makeup job.
     """
@@ -109,11 +106,7 @@ def claim_makeup_job(slack_user_id, assignment_id):
         raise ValueError("Slack user ID not found.")
 
     # Fetch makeup job
-    makeups = execute_query(
-        "makeup_jobs",
-        "select",
-        filters=[("original_assignment_id", "eq", assignment_id)]
-    )
+    makeups = execute_query("makeup_jobs", "select", filters=[("original_assignment_id", "eq", assignment_id)])
     if not makeups:
         raise ValueError("Makeup job not found.")
 
@@ -139,11 +132,8 @@ def claim_makeup_job(slack_user_id, assignment_id):
         filters=[("original_assignment_id", "eq", assignment_id)]
     )
 
-    job_rows = execute_query(
-        "jobs",
-        "select",
-        filters=[("job_id", "eq", makeup["job_id"])]
-    )
+    # Get job name
+    job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", makeup["job_id"])])
     job_name = job_rows[0]["job_name"] if job_rows else "Unknown Job"
 
     return {
@@ -151,10 +141,9 @@ def claim_makeup_job(slack_user_id, assignment_id):
         "job_name": job_name
     }
 
-
 # ---------- See Makeup Jobs ----------
 
-def db_see_makeup_jobs():
+def db_see_makeup_jobs() -> List[Dict]:
     """
     Retrieve all makeup jobs currently available.
     """
@@ -168,7 +157,7 @@ def db_see_makeup_jobs():
         results.append({
             "original_assignment_id": m["original_assignment_id"],
             "job_id": m["job_id"],
-            "job_name": job.get("job_name"),
+            "job_name": job.get("job_name", "Unknown Job"),
             "job_description": job.get("job_description"),
             "due_at": m["due_at"],
             "created_at": m.get("created_at")

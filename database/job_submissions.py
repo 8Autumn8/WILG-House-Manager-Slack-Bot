@@ -1,9 +1,9 @@
 from database.db import execute_query
 
-# ---------- Helpers ----------
+# ---------- User Helpers ----------
 
-def get_user_id(slack_user_id):
-    """Return the user_id for a given Slack ID, or None."""
+def get_user_id(slack_user_id: str) -> int | None:
+    """Return the user_id for a given Slack ID, or None if not found."""
     rows = execute_query(
         "users",
         "select",
@@ -12,8 +12,8 @@ def get_user_id(slack_user_id):
     return rows[0]["user_id"] if rows else None
 
 
-def get_user_name_by_id(user_id):
-    """Return the username for a given user_id, or 'Unknown User'."""
+def get_user_name_by_id(user_id: int) -> str:
+    """Return the username for a given user_id, or 'Unknown User' if not found."""
     rows = execute_query(
         "users",
         "select",
@@ -22,15 +22,8 @@ def get_user_name_by_id(user_id):
     return rows[0]["username"] if rows else "Unknown User"
 
 
-def get_job_name_from_assignment_id(assignment_id):
+def get_job_name_from_assignment_id(assignment_id: int) -> str | None:
     """Return the job_name for a given assignment_id."""
-    query = """
-        SELECT j.job_name
-        FROM active_assignments a
-        JOIN jobs j ON a.job_id = j.job_id
-        WHERE a.assignment_id = %s
-    """
-    # Supabase API does not support raw joins easily; we'll query active_assignments first
     assignment_rows = execute_query(
         "active_assignments",
         "select",
@@ -51,23 +44,25 @@ def get_job_name_from_assignment_id(assignment_id):
 # ---------- Submissions ----------
 
 def add_to_submission_table(
-    slack_user_id,
-    job_hours,
-    assignment_id,
+    slack_user_id: str,
+    job_hours: float,
+    assignment_id: int,
     date_of_completion,
     submission_time,
-    witness_slack_user_id=None,
-    comments=None,
-    channel_id=None  # kept for compatibility
-):
-    """Add a job submission to Supabase."""
+    witness_slack_user_id: str | None = None,
+    comments: str | None = None,
+    channel_id: str | None = None
+) -> tuple[int | None, str, str | None, str | None]:
+    """
+    Add a job submission to Supabase.
+    Returns: (submission_id, user_name, job_name, witness_name)
+    """
     user_id = get_user_id(slack_user_id)
     witness_user_id = get_user_id(witness_slack_user_id) if witness_slack_user_id else None
 
     if user_id is None:
         raise ValueError("Submitting user not found")
 
-    # Insert submission
     data = {
         "user_id": user_id,
         "assignment_id": assignment_id,
@@ -78,6 +73,7 @@ def add_to_submission_table(
         "comments": comments,
         "approved": None
     }
+
     inserted = execute_query("job_submissions", "insert", data=data)
     submission_id = inserted[0]["submission_id"] if inserted else None
 
@@ -90,40 +86,34 @@ def add_to_submission_table(
 
 # ---------- Queries ----------
 
-def get_all_submissions_and_approved_hours(slack_user_id=None):
-    """Return submissions with job_name added and total approved hours."""
+def get_all_submissions_and_approved_hours(slack_user_id: str | None = None) -> tuple[list[dict], float]:
+    """
+    Fetch all submissions for a user (or all users if None) and calculate total approved hours.
+    Each submission will include the job_name.
+    """
     filters = []
-    user_id = None
-
     if slack_user_id:
         user_id = get_user_id(slack_user_id)
         if user_id:
             filters.append(("user_id", "eq", user_id))
 
-    # Fetch all submissions for this user (or all if no user)
     submissions = execute_query("job_submissions", "select", filters=filters)
 
     approved_hours = 0
     for submission in submissions:
-        # Use helper to get job_name
         submission["job_name"] = get_job_name_from_assignment_id(submission["assignment_id"]) or "Unknown"
-
-        # Sum approved hours
         if submission.get("approved") == "APPROVED":
             approved_hours += submission.get("job_hours", 0) or 0
 
     return submissions, approved_hours
 
 
-
-
 # ---------- Approval / Rejection ----------
 
-def reject_jobs_in_db(rejected_ids):
-    """Mark submissions as REJECTED."""
+def reject_jobs_in_db(rejected_ids: list[int]):
+    """Mark the specified submissions as REJECTED."""
     if not rejected_ids:
         return
-
     for submission_id in rejected_ids:
         execute_query(
             "job_submissions",
@@ -133,11 +123,10 @@ def reject_jobs_in_db(rejected_ids):
         )
 
 
-def approve_jobs_in_db(approved_ids):
-    """Mark submissions as APPROVED."""
+def approve_jobs_in_db(approved_ids: list[int]):
+    """Mark the specified submissions as APPROVED."""
     if not approved_ids:
         return
-
     for submission_id in approved_ids:
         print("Approving submission ID:", submission_id)
         execute_query(

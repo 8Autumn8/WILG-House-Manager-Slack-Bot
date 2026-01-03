@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from database.db import execute_query
-from database.db import get_table
+from database.db import execute_query, get_table
 
 FREQUENCY_CONFIG = {
     "DAILY": {"count": 14, "delta": timedelta(days=1)},
@@ -13,17 +12,13 @@ ET_OFFSET = timezone(timedelta(hours=-5))
 
 
 def add_job_assignments_to_db(assignments, start_date):
+    """Add recurring job assignments for users."""
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
 
     weekdays = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6
+        "monday": 0, "tuesday": 1, "wednesday": 2,
+        "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6
     }
 
     for assignment in assignments:
@@ -33,11 +28,7 @@ def add_job_assignments_to_db(assignments, start_date):
         print(f"Processing assignment: {username} → {job_name}")
 
         # Get job info
-        job_rows = execute_query(
-            "jobs",
-            "select",
-            filters=[("job_name", "eq", job_name)]
-        )
+        job_rows = execute_query("jobs", "select", filters=[("job_name", "eq", job_name)])
         if not job_rows:
             print(f"Job '{job_name}' not found, skipping assignment.")
             continue
@@ -50,11 +41,7 @@ def add_job_assignments_to_db(assignments, start_date):
             continue
 
         # Get user_id
-        user_rows = execute_query(
-            "users",
-            "select",
-            filters=[("username", "eq", username)]
-        )
+        user_rows = execute_query("users", "select", filters=[("username", "eq", username)])
         if not user_rows:
             print(f"User '{username}' not found, skipping assignment.")
             continue
@@ -62,20 +49,22 @@ def add_job_assignments_to_db(assignments, start_date):
 
         hour, minute, second = map(int, due_time_str.split(":"))
 
-        # KITCHEN jobs: assign due date based on the weekday in the job name
+        # Calculate first due_at
         if job_type == "KITCHEN":
+            # Determine correct weekday from job name
             due_at = start_date
             for day_name, weekday_num in weekdays.items():
                 if day_name in job_name.lower():
                     days_ahead = (weekday_num - due_at.weekday() + 7) % 7
                     due_at += timedelta(days=days_ahead)
                     break
-            # Set due time from job's due_by_time
-            due_at = due_at.replace(hour=hour, minute=minute, second=second, microsecond=0, tzinfo=ET_OFFSET)
+            due_at = due_at.replace(hour=hour, minute=minute, second=second,
+                                    microsecond=0, tzinfo=ET_OFFSET)
         else:
             # Other jobs: 1 week after start date
-            due_at = start_date + timedelta(weeks=1)
-            due_at = due_at.replace(hour=hour, minute=minute, second=second, microsecond=0, tzinfo=ET_OFFSET)
+            due_at = (start_date + timedelta(weeks=1)).replace(
+                hour=hour, minute=minute, second=second, microsecond=0, tzinfo=ET_OFFSET
+            )
 
         # Generate recurring assignments
         config = FREQUENCY_CONFIG[job_type]
@@ -89,22 +78,15 @@ def add_job_assignments_to_db(assignments, start_date):
             })
             current_due += config["delta"]
 
-        execute_query("active_assignments", "insert", data=records_to_insert)
-        print(f"Inserted {len(records_to_insert)} assignments for {username} → {job_name}")
-
+        if records_to_insert:
+            execute_query("active_assignments", "insert", data=records_to_insert)
+            print(f"Inserted {len(records_to_insert)} assignments for {username} → {job_name}")
 
 
 def make_makeup_job_assignments_to_db():
-    """
-    Creates a permanent 'Makeup Job' (job_id=0) and assigns it to all users.
-    This job never expires and is always in users' active assignments.
-    """
-    # 1️⃣ Create Job 0 if it doesn't exist
-    existing_job = execute_query(
-        "jobs",
-        "select",
-        filters=[("job_id", "eq", 0)]
-    )
+    """Create permanent Makeup Job (job_id=0) and assign to all users."""
+    # 1️⃣ Create Job 0 if not exists
+    existing_job = execute_query("jobs", "select", filters=[("job_id", "eq", 0)])
     if not existing_job:
         execute_query(
             "jobs",
@@ -115,7 +97,7 @@ def make_makeup_job_assignments_to_db():
                 "job_description": "Permanent makeup job for all users",
                 "num_hours": 1,
                 "job_type": "MAKEUP",
-                "due_by_time": "23:59:59-05:00"
+                "due_by_time": "23:59:59"
             }]
         )
         print("Created permanent Makeup Job (job_id=0).")
@@ -124,15 +106,14 @@ def make_makeup_job_assignments_to_db():
 
     # 2️⃣ Assign Job 0 to all users
     users_response = get_table("users").select("*").execute()
-    users = users_response.data  # ✅ extract the list of rows
+    users = users_response.data
 
-    far_future_due = datetime(2026, 12, 31, 23, 59, 0).isoformat() + "-05:00"
+    far_future_due = datetime(2026, 12, 31, 23, 59, 0, tzinfo=ET_OFFSET).isoformat()
 
     records_to_insert = []
     for user in users:
         user_id = user["user_id"]
-
-        # Skip if user already has Job 0 assigned
+        # Skip if already assigned
         existing_assignment = execute_query(
             "active_assignments",
             "select",
