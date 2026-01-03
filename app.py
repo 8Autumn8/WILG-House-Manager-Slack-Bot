@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask, json, request, Response, jsonify
 from slackeventsapi import SlackEventAdapter
 from services.submissions import submit_hours, get_user_submissions, sync_hours
-from services.formatters import format_submissions_table, build_page_blocks, format_all_user_hours_table, format_user_active_assignments, parse_date, format_makeup_giveup_message, format_makeup_jobs
+from services.formatters import format_submissions_table, build_page_blocks, format_all_user_hours_table, format_user_active_assignments, parse_date, format_makeup_giveup_message, format_makeup_jobs, page_block_formatting_helper
 from services.makeup import claim_job_for_makeup, giveup_job_for_makeup, expire_makeup_jobs, see_makeup_jobs
 from services.assignments import generate_user_table, get_user_assignments, expire_assignments
 from services.reminders import get_expiring_jobs
@@ -189,7 +189,6 @@ def giveup_job_for_makeup_api():
     data = request.form
     #print(data)
     user_id = data.get('user_id')
-    username = data.get('user_name')
     channel_id = data.get('channel_id')
     assignmnet_id = data.get('text')
     message = f"Giving up job for makeup..."
@@ -202,20 +201,34 @@ def giveup_job_for_makeup_api():
     ).start()
     return Response(), 200
 
-
-@app.route("/slack/actions", methods=["POST"])
-def handle_actions():
-    payload = request.form["payload"]
+def handle_actions_background(payload):
+    
     payload_json = json.loads(payload)
 
     action = payload_json["actions"][0]
-    page = int(action["value"])
+    #page = int(action["value"])
     user_id = payload_json["user"]["id"]
     channel_id = payload_json["channel"]["id"]
 
-    submissions, approved_hours = get_user_submissions(user_id)
+    view_page = action["value"]        # e.g., "submissions-2" or "makeup-1"
+    view_type, page_str = view_page.split("-")
+    page = int(page_str)
 
-    blocks = build_page_blocks(submissions, page, approved_hours)
+    if view_type == "submissions":
+        submissions, approved_hours = get_user_submissions(user_id)
+        submissions, total_pages = page_block_formatting_helper(submissions, page)
+        table_text = format_submissions_table(submissions, approved_hours)
+        blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions")
+    elif view_type == "makeup":
+        makeup_jobs = see_makeup_jobs()
+        makeup_jobs, total_pages = page_block_formatting_helper(makeup_jobs, page)
+        table_text = format_makeup_jobs(makeup_jobs)
+        blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup")
+    elif view_type == "active":
+        assignments = get_user_assignments(user_id)
+        assignments, total_pages = page_block_formatting_helper(assignments, page)
+        table_text = format_user_active_assignments(assignments)
+        blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
 
     # Update original message
     client.chat_update(
@@ -225,13 +238,35 @@ def handle_actions():
         blocks=blocks
     )
 
+    return
+
+@app.route("/slack/actions", methods=["POST"])
+def handle_actions():
+    payload = request.form["payload"]
+    payload_json = json.loads(payload)
+
+    channel_id = payload_json["channel"]["id"]
+
+    client.chat_update(
+        channel=channel_id,
+        ts=payload_json["message"]["ts"],
+        text ="Getting Next Page...",
+    )
+    threading.Thread(
+
+        target=handle_actions_background,
+        args=(payload,)
+    ).start()
+
     return Response(), 200
 
 def get_my_hour_submissions_background(user_id, channel_id):
     submissions, approved_hours = get_user_submissions(user_id)
-  
+    page = 1
+    submissions, total_pages = page_block_formatting_helper(submissions, page)
+    table_text = format_submissions_table(submissions, approved_hours)
+    blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions")
 
-    blocks = build_page_blocks(submissions, page=1, approved_hours=approved_hours)
     print(blocks)
     #submissions_message = format_submissions_table(submissions, approved_hours)
     client.chat_postMessage(
@@ -336,11 +371,15 @@ def generate_user_table_api():
     return Response(), 200
 
 def get_my_assignments_background(user_id, channel_id):
-    result = get_user_assignments(user_id)
-    message = format_user_active_assignments(result)
+    assignments = get_user_assignments(user_id)
+    page = 1
+    assignments, total_pages = page_block_formatting_helper(assignments, page)
+    table_text = format_user_active_assignments(assignments)
+    blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
     client.chat_postMessage(
         channel=channel_id,
-        text=message
+        text="Assignments:",
+        blocks=blocks
     )   
 
 @app.route('/get-my-assignments', methods=['GET', 'POST'])
@@ -359,12 +398,17 @@ def get_my_assignments_api():
     return Response(), 200
 
 
-def see_makeup_jobs_background(user_id, channel_id):
-    result = see_makeup_jobs()
-    message = format_makeup_jobs(result)
+def see_makeup_jobs_background(channel_id):
+    page = 1
+    makeup_jobs = see_makeup_jobs()
+    makeup_jobs, total_pages = page_block_formatting_helper(makeup_jobs, page)
+    table_text = format_makeup_jobs(makeup_jobs)
+    #print(table_text)
+    blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup")
     client.chat_postMessage(
         channel=channel_id,
-        text=message
+        text="Makeup Jobs",
+        blocks=blocks
     )
 
 @app.route('/see-makeup-jobs', methods=['GET', 'POST'])
@@ -377,7 +421,7 @@ def see_makeup_jobs_api():
 
     threading.Thread(
         target=see_makeup_jobs_background,
-        args=(user_id, channel_id)
+        args=(channel_id,)
     ).start()
 
     return Response(), 200

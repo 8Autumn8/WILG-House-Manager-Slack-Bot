@@ -41,43 +41,38 @@ def get_page(submissions, page):
     end = start + PAGE_SIZE
     return submissions[start:end]
 
-def build_page_blocks(submissions, page, approved_hours):
-    total_pages = (len(submissions) + PAGE_SIZE - 1) // PAGE_SIZE
-    page_submissions = get_page(submissions, page)
-    table_text = format_submissions_table(page_submissions, approved_hours)
-    print(table_text)
+def page_block_formatting_helper(data, page):
+    total_pages = (len(data) + PAGE_SIZE - 1) // PAGE_SIZE
+    data_on_page = get_page(data, page)
+    return data_on_page, total_pages
+
+def build_page_blocks(total_pages, page, table_text, view_type="submissions"):
 
     blocks = [
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": table_text}
-        }
+        {"type": "section", "text": {"type": "mrkdwn", "text": table_text}}
     ]
-
-    
 
     buttons = []
     if page > 1:
         buttons.append({
             "type": "button",
             "text": {"type": "plain_text", "text": "⬅ Prev"},
-            "value": str(page - 1),
+            "value": f"{view_type}-{page-1}",  # encode view + page
             "action_id": "prev_page"
         })
     if page < total_pages:
         buttons.append({
             "type": "button",
             "text": {"type": "plain_text", "text": "Next ➡"},
-            "value": str(page + 1),
+            "value": f"{view_type}-{page+1}",  # encode view + page
             "action_id": "next_page"
         })
 
     if buttons:
-        blocks.append({
-            "type": "actions",
-            "elements": buttons
-        })
+        blocks.append({"type": "actions", "elements": buttons})
+
     return blocks
+
 
 
 def format_all_user_hours_table(all_user_hours):
