@@ -91,7 +91,7 @@ def add_to_submission_table(
 # ---------- Queries ----------
 
 def get_all_submissions_and_approved_hours(slack_user_id=None):
-    """Return submissions and total approved hours."""
+    """Return submissions with job_name added and total approved hours."""
     filters = []
     user_id = None
 
@@ -100,18 +100,34 @@ def get_all_submissions_and_approved_hours(slack_user_id=None):
         if user_id:
             filters.append(("user_id", "eq", user_id))
 
+    # Fetch all submissions for this user (or all if no user)
     submissions = execute_query("job_submissions", "select", filters=filters)
 
-    # Calculate approved hours
-    approved_rows = execute_query(
-        "job_submissions",
-        "select",
-        filters=[("approved", "eq", "APPROVED")] + (filters if user_id else []),
-        join=[("jobs", "job_id", "job_id")]  # pseudo-code, depends on your execute_query
-    )
-    approved_hours = sum(r["job_hours"] for r in approved_rows) if approved_rows else 0
+    approved_hours = 0
+    for submission in submissions:
+        # Add job_name to each submission
+        assignment_rows = execute_query(
+            "active_assignments",
+            "select",
+            filters=[("assignment_id", "eq", submission["assignment_id"])]
+        )
+        if assignment_rows:
+            job_id = assignment_rows[0]["job_id"]
+            job_rows = execute_query(
+                "jobs",
+                "select",
+                filters=[("job_id", "eq", job_id)]
+            )
+            submission["job_name"] = job_rows[0]["job_name"] if job_rows else "Unknown"
+        else:
+            submission["job_name"] = "Unknown"
+
+        # Sum approved hours
+        if submission.get("approved") == "APPROVED":
+            approved_hours += submission.get("job_hours", 0) or 0
 
     return submissions, approved_hours
+
 
 
 # ---------- Approval / Rejection ----------
