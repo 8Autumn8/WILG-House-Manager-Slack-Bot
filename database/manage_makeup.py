@@ -77,7 +77,7 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     due_at = ET.localize(due_at)  # make it timezone-aware
     print(datetime.now(ET) , due_at - timedelta(hours=24))
     can_still_giveup = datetime.now(ET) < (due_at)
-    
+
     if not can_still_giveup:
         raise ValueError("Cannot give up job for makeup after due time.")
     
@@ -93,7 +93,7 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     if is_late_makeup:
         makeup_data["prev_user_id"] = user_id
     else:
-        makeup_data["user_id"] = None
+        makeup_data["prev_user_id"] = None
 
     execute_query("makeup_jobs", "insert", data=makeup_data)
 
