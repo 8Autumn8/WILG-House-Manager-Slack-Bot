@@ -120,7 +120,7 @@ def get_active_assignments(slack_user_id: int):
             continue  # skip if no mapping found
 
         job_id = assignment_job[0].get("job_id")
-        if not job_id:
+        if job_id is None:
             continue  # skip if job_id missing
 
         # Get job info
@@ -147,4 +147,5 @@ def get_active_assignments(slack_user_id: int):
         })
 
     results.sort(key=lambda r: r["due_at"] or "")
+    #print("Active assignments retrieved:", results)
     return results

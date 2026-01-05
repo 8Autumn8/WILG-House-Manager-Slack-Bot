@@ -218,7 +218,9 @@ def handle_actions_background(payload):
         blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup")
     elif view_type == "active":
         assignments = get_user_assignments(user_id)
+        print("Assignments:", assignments)
         assignments, total_pages = page_block_formatting_helper(assignments, page)
+        print("Paged Assignments:", assignments)
         table_text = format_user_active_assignments(assignments)
         blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
 
@@ -365,8 +367,10 @@ def generate_user_table_api():
 
 def get_my_assignments_background(user_id, channel_id):
     assignments = get_user_assignments(user_id)
+    #print("Assignments:", assignments)
     page = 1
     assignments, total_pages = page_block_formatting_helper(assignments, page)
+    #print("Paged Assignments:", assignments)
     table_text = format_user_active_assignments(assignments)
     blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
     client.chat_postMessage(
@@ -380,7 +384,7 @@ def get_my_assignments_api():
     data = request.form
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
-    print(data)
+    #print(data)
     user_name = data.get('user_name')
     message = f"Getting {user_name}'s assignments"
     response = client.chat_postMessage(channel=channel_id, text=message)

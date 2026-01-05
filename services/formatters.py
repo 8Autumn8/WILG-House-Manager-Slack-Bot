@@ -115,6 +115,7 @@ def parse_date(date_str):
 
 
 def format_user_active_assignments(assignments):
+    #print(assignments)
     if not assignments:
         return "*No active assignments found.*"
 
