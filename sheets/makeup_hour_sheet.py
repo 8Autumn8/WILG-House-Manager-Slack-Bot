@@ -7,7 +7,7 @@ SPREADSHEET_NAME = os.getenv("JOB_DESCRIPTION_ASSIGNMENT_SPREADSHEET", "Spring 2
 WORKSHEET_NAME = "Job for Makeup"  # tab name
 
 auth_file = Path(__file__).parent.parent / "google_auth.json"
-def get_job_assignments_from_sheet():
+def get_makeup_job_assignments_from_sheet():
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"

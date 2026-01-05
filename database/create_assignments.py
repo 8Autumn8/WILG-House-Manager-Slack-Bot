@@ -5,10 +5,10 @@ from database.db import execute_query, get_table
 # ---------- Config ----------
 
 FREQUENCY_CONFIG = {
-    "DAILY": {"count": 14, "delta": timedelta(days=1)},
-    "WEEKLY": {"count": 14, "delta": timedelta(weeks=1)},
-    "BIWEEKLY": {"count": 28, "delta": timedelta(weeks=2)},
-    "KITCHEN": {"count": 14, "delta": timedelta(weeks=1)},
+    "DAILY": {"count": 21, "delta": timedelta(days=1)},
+    "WEEKLY": {"count": 3, "delta": timedelta(weeks=1)},
+    "BIWEEKLY": {"count": 6, "delta": timedelta(weeks=0.5)},
+    "KITCHEN": {"count": 3, "delta": timedelta(weeks=1)},
 }
 
 ET_OFFSET = timezone(timedelta(hours=-5))
@@ -75,6 +75,10 @@ def add_job_assignments_to_db(assignments, start_date):
                     days_ahead = (weekday_num - due_at.weekday() + 7) % 7
                     due_at += timedelta(days=days_ahead)
                     break
+        elif job_type == "DAILY":
+            due_at = start_date 
+        elif job_type == "BIWEEKLY":
+            due_at = start_date + timedelta(weeks=0.5)
         else:
             due_at = start_date + timedelta(weeks=1)
 

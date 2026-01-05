@@ -20,8 +20,11 @@ def get_job_assignments_from_sheet():
 
     client = gspread.authorize(creds)
     print(SPREADSHEET_NAME)
+    
     sheet = client.open(SPREADSHEET_NAME).worksheet(WORKSHEET_NAME)
+    #print(sheet.title)
 
     rows = sheet.get_all_records()  # list of dicts
+    #print(rows)
     return rows
 

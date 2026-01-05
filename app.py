@@ -107,7 +107,7 @@ def submit_hour_api():
     #     }), 400
     comments = commands[4::] if len(commands) > 4 else ""
     submission_time = data.get("submission_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    username = data.get('display_name_normalized')
+    username = data.get('user_name')
     # Immediately ACK Slack
     response_message = f"{username} submitted a job. Processing..."
     client.chat_postMessage(channel=channel_id, text=response_message)
@@ -137,10 +137,10 @@ def claim_job_for_makeup_background(channel_id, user_id, assignment_id):
 def claim_job_makeup_job_api():
     data = request.form
     user_id = data.get('user_id')
-    username = data.get('display_name_normalized')
+    user_name = data.get('user_name')
     channel_id = data.get('channel_id')
     assignmnet_id = data.get('text')
-    message = f"Claiming a makeup job..."
+    message = f"{user_name} is claiming a makeup job..."
     response = client.chat_postMessage(channel=channel_id, text=message)
     #print(data)
     
@@ -182,7 +182,8 @@ def giveup_job_for_makeup_api():
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
     assignmnet_id = data.get('text')
-    message = f"Giving up job for makeup..."
+    user_name = data.get('user_name')
+    message = f"Giving up {user_name}'s job for makeup..."
     response = client.chat_postMessage(channel=channel_id, text=message)
     #print(data)
     
@@ -200,7 +201,7 @@ def handle_actions_background(payload):
     #page = int(action["value"])
     user_id = payload_json["user"]["id"]
     channel_id = payload_json["channel"]["id"]
-
+    user_name = payload_json["user"]["name"]
     view_page = action["value"]        # e.g., "submissions-2" or "makeup-1"
     view_type, page_str = view_page.split("-")
     page = int(page_str)
@@ -225,7 +226,7 @@ def handle_actions_background(payload):
     client.chat_update(
         channel=channel_id,
         ts=payload_json["message"]["ts"],
-        text ="Here are your submissions",
+        text=f"Here are {user_name}'s submissions",
         blocks=blocks
     )
 
@@ -271,7 +272,8 @@ def get_my_hour_submissions_api():
     data = request.form
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
-    message = f"Getting hour submissions"
+    user_name = data.get('user_name')
+    message = f"Getting hour submissions for {user_name}"
     response = client.chat_postMessage(channel=channel_id, text=message)
 
     threading.Thread(
@@ -378,7 +380,9 @@ def get_my_assignments_api():
     data = request.form
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
-    message = f"Getting assignments"
+    print(data)
+    user_name = data.get('user_name')
+    message = f"Getting {user_name}'s assignments"
     response = client.chat_postMessage(channel=channel_id, text=message)
 
     threading.Thread(
@@ -407,7 +411,7 @@ def see_makeup_jobs_api():
     data = request.form
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
-    message = f"Getting makeup jobs"
+    message = f"Getting available makeup jobs"
     response = client.chat_postMessage(channel=channel_id, text=message)
 
     threading.Thread(
@@ -429,7 +433,7 @@ def send_expiring_job_reminders():
 @app.route('/run-expiring-jobs', methods=['GET', 'POST'])
 def run_expiring_job_reminders_api():
     print("Running expiring job reminders...")
-    client.chat_postMessage(channel=house_mnager_channel_id, text="Running expiring job reminders...")
+    client.chat_postMessage(channel=house_mnager_channel_id, text="Cron Job: Running expiring job reminders...")
     send_expiring_job_reminders()
     return Response(), 200
 
@@ -442,7 +446,7 @@ def expire_incomplete_jobs():
 @app.route('/expire-incomplete-jobs', methods=['GET', 'POST'])
 def expire_incomplete_jobs_api():
     print("Expiring incomplete jobs...")
-    client.chat_postMessage(channel=house_mnager_channel_id, text="Expiring incomplete jobs...")
+    client.chat_postMessage(channel=house_mnager_channel_id, text="Cron Job: Expiring incomplete jobs...")
     expire_incomplete_jobs()
     return Response(), 200
 

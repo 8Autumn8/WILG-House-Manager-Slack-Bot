@@ -13,9 +13,14 @@ def db_expire_makeup_jobs():
     """
     all_makeups = execute_query("makeup_jobs", "select")
     now = datetime.now(ET_OFFSET)
+    
 
     for m in all_makeups:
         due_at = datetime.fromisoformat(m["due_at"])
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=ET_OFFSET)
+        user_id = m["user_id"] if m["user_id"] is not None else None
+       
         if due_at < now:
             # Insert into inactive_jobs
             execute_query(
@@ -23,10 +28,11 @@ def db_expire_makeup_jobs():
                 "insert",
                 data={
                     "assignment_id": m["original_assignment_id"],
-                    "user_id": None,
+                    "user_id": user_id,
                     "job_id": m["job_id"],
                     "due_at": m["due_at"],
                     "status": "EXPIRED",
+                    "came_from": "MAKEUP",
                     "moved_at": now.isoformat()
                 }
             )
@@ -69,9 +75,14 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     # Parse ISO string as naive, then localize to ET
     due_at = datetime.fromisoformat(assignment["due_at"])
     due_at = ET.localize(due_at)  # make it timezone-aware
-
+    print(datetime.now(ET) , due_at - timedelta(hours=24))
+    can_still_giveup = datetime.now(ET) < (due_at)
+    
+    if not can_still_giveup:
+        raise ValueError("Cannot give up job for makeup after due time.")
+    
     is_late_makeup = datetime.now(ET) > (due_at - timedelta(hours=24))
-
+    print("Is late makeup:", is_late_makeup)
     # Insert into makeup_jobs
     makeup_data = {
         "original_assignment_id": assignment_id,
@@ -81,6 +92,8 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
 
     if is_late_makeup:
         makeup_data["prev_user_id"] = user_id
+    else:
+        makeup_data["user_id"] = None
 
     execute_query("makeup_jobs", "insert", data=makeup_data)
 

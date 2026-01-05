@@ -60,6 +60,7 @@ def expire_active_assignments(expire_after_days: int = 6):
                     "user_id": assignment["user_id"],
                     "due_at": assignment["due_at"],
                     "status": "EXPIRED",
+                    "came_from": "ACTIVE_ASSIGNMENTS",
                     "moved_at": datetime.utcnow().isoformat()
                 }
             )
