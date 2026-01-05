@@ -23,14 +23,14 @@ slack_event_adapter = SlackEventAdapter(os.getenv('SIGNING_SECRET'), '/slack/eve
 BOT_ID = client.api_call("auth.test")['user_id']
 
 
-@slack_event_adapter.on('message')
-def message(payload):
-    event = payload.get('event', {})
-    channel_id = event.get('channel')
-    user_id = event.get('user')
-    text = event.get('text')
-    if BOT_ID != user_id:
-        response = client.chat_postMessage(channel=channel_id, text=text)
+# @slack_event_adapter.on('message')
+# def message(payload):
+#     event = payload.get('event', {})
+#     channel_id = event.get('channel')
+#     user_id = event.get('user')
+#     text = event.get('text')
+#     if BOT_ID != user_id:
+#         response = client.chat_postMessage(channel=channel_id, text=text)
 
     # if 'hello' in text.lower():
     #     client.chat_postMessage(channel=channel_id, text=f"Hello, <@{user_id}>!")

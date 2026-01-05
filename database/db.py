@@ -70,6 +70,13 @@ def get_user_id(slack_user_id):
     rows = execute_query("users", "select", filters=[("slack_user_id", "eq", slack_user_id)])
     return rows[0]["user_id"] if rows else None
 
+def get_slack_user_id(user_id):
+    """
+    Return the Slack user ID for a given numeric user_id, or None if not found.
+    """
+    rows = execute_query("users", "select", filters=[("user_id", "eq", user_id)])
+    return rows[0]["slack_user_id"] if rows else None
+
 def get_job_id(assignment_id):
     rows = execute_query("assignment_jobs", "select", filters=[("assignment_id", "eq", assignment_id)])
     return rows[0]["job_id"] if rows else None

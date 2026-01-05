@@ -56,7 +56,8 @@ def add_to_submission_table(
     submission_id = inserted[0]["submission_id"] if inserted else None
 
     user_name = get_user_name_by_id(user_id)
-    job_name = get_job_id(assignment_id)
+    job_id = get_job_id(assignment_id)
+    job_name = get_job_name_from_job_id(job_id)
     witness_name = get_user_name_by_id(witness_user_id) if witness_user_id else None
 
     return submission_id, user_name, job_name, witness_name

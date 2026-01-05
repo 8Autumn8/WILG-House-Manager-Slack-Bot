@@ -5,10 +5,10 @@ from database.db import execute_query, get_table
 # ---------- Config ----------
 
 FREQUENCY_CONFIG = {
-    "DAILY": {"count": 21, "delta": timedelta(days=1)},
-    "WEEKLY": {"count": 3, "delta": timedelta(weeks=1)},
-    "BIWEEKLY": {"count": 6, "delta": timedelta(weeks=0.5)},
-    "KITCHEN": {"count": 3, "delta": timedelta(weeks=1)},
+    "DAILY": {"count": 14, "delta": timedelta(days=1)},
+    "WEEKLY": {"count": 4, "delta": timedelta(weeks=1)},
+    "BIWEEKLY": {"count": 4, "delta": timedelta(weeks=0.5)},
+    "KITCHEN": {"count": 4, "delta": timedelta(weeks=1)},
 }
 
 ET_OFFSET = timezone(timedelta(hours=-5))
