@@ -127,6 +127,8 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     makeups = execute_query("makeup_jobs", "select", filters=[("original_assignment_id", "eq", assignment_id)])
     if not makeups:
         raise ValueError("Makeup job not found.")
+    elif makeups[0]["due_at"] <= datetime.now(ET_OFFSET).isoformat():
+        raise ValueError("Time to claim makeup job has passed.")
 
     makeup = makeups[0]
 
