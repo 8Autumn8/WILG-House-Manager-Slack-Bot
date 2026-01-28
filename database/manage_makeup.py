@@ -19,7 +19,8 @@ def db_expire_makeup_jobs():
         due_at = datetime.fromisoformat(m["due_at"])
         if due_at.tzinfo is None:
             due_at = due_at.replace(tzinfo=ET_OFFSET)
-        user_id = m["user_id"] if m["user_id"] is not None else None
+        print(m)
+        user_id = m["prev_user_id"] if m["prev_user_id"] is not None else None
        
         if due_at < now:
             # Insert into inactive_jobs
@@ -29,7 +30,7 @@ def db_expire_makeup_jobs():
                 data={
                     "assignment_id": m["original_assignment_id"],
                     "user_id": user_id,
-                    "job_id": m["job_id"],
+                    #"job_id": m["job_id"],
                     "due_at": m["due_at"],
                     "status": "EXPIRED",
                     "came_from": "MAKEUP",

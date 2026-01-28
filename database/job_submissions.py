@@ -85,6 +85,11 @@ def get_all_submissions_and_approved_hours(slack_user_id: str | None = None) -> 
         submission["job_name"] = get_job_name_from_job_id(job_id) or "Unknown"
         if submission.get("approved") == "APPROVED":
             approved_hours += submission.get("job_hours", 0) or 0
+            submission["approved"] = "APPROVED"
+        elif not submission.get("approved"):
+            submission["approved"] = "PENDING"
+        elif submission.get("approved") == "REJECTED":
+            submission["approved"] = "REJECTED"
 
     return submissions, approved_hours
 
