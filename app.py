@@ -300,7 +300,7 @@ def update_approved_hours_background():
 
 
 ADMINS = os.getenv("ADMIN_USER_IDS").split(",")
-@app.route('/update-approved-hours', methods=['POST'])
+@app.route('/update-approved-hours', methods=['POST', 'GET'])
 def update_approved_hours_api():
     data = request.form
     #print(data)
@@ -311,7 +311,7 @@ def update_approved_hours_api():
             "text": "❌ You do not have permission to perform this action."
         }), 403
     channel_id = data.get('channel_id')
-    message = f"Admin has synced approved hours."
+    message = f"Admin is syncing approved hours."
     response = client.chat_postMessage(channel=channel_id, text=message)
 
     threading.Thread(

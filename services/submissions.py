@@ -40,7 +40,7 @@ def submit_hours(
             channel_id
         )
         print("added to submission table, now updating logs...")
-        add_to_submission_logs(submission_id, submission_time, user_name, job_name, date_of_completion, witness_name, comments)
+        add_to_submission_logs(submission_id, submission_time, user_name, job_name, job_hours, date_of_completion, witness_name, comments)
         #return submission_id
 
         # Notify user on Slack

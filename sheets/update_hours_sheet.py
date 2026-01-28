@@ -8,8 +8,8 @@ SPREADSHEET_NAME = os.getenv("SUBMISSION_SPREADSHEET") # exact sheet name
 BASE_DIR = Path(__file__).resolve().parent.parent  # goes up one level
 auth_file = BASE_DIR / "google_auth.json"          # full path to your auth file
 
-def add_to_submission_logs(submission_id, submission_time, name, job, date_of_completion, witness, comments):
-    print(auth_file)
+def add_to_submission_logs(submission_id, submission_time, name, job, number_of_hours,date_of_completion, witness, comments):
+    print(auth_file) 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -30,6 +30,7 @@ def add_to_submission_logs(submission_id, submission_time, name, job, date_of_co
         submission_time,  # passed in from code
         name,
         job,
+        number_of_hours,
         date_of_completion,
         witness,
         comments,
