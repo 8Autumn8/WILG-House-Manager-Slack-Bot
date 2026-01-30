@@ -19,7 +19,7 @@ def db_expire_makeup_jobs():
         due_at = datetime.fromisoformat(m["due_at"])
         if due_at.tzinfo is None:
             due_at = due_at.replace(tzinfo=ET_OFFSET)
-        print(m)
+        #print(m)
         user_id = m["prev_user_id"] if m["prev_user_id"] is not None else None
        
         if due_at < now:
@@ -127,7 +127,7 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     # Fetch makeup job
     makeups = execute_query("makeup_jobs", "select", filters=[("original_assignment_id", "eq", assignment_id)])
     if not makeups:
-        raise ValueError("Makeup job not found.")
+        raise ValueError("Makeup job not found. Please Check whether the assignment ID is still available for makeup.")
     elif makeups[0]["due_at"] <= datetime.now(ET_OFFSET).isoformat():
         raise ValueError("Time to claim makeup job has passed.")
 

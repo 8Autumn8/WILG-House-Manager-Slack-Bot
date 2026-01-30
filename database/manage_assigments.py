@@ -62,17 +62,22 @@ def get_expiring_assignments(days_after_due: int = 6) -> list[dict]:
 
 # ---------- Expire Assignments ----------
 
-def expire_active_assignments(expire_after_days: int = 6):
+def expire_active_assignments(expire_after_days: int = 7):
     """
     Move expired assignments from active_assignments to inactive_jobs with status 'EXPIRED'.
     An assignment is expired if due_at + `expire_after_days` < today.
     """
     all_assignments = execute_query("active_assignments", "select")
     today = datetime.utcnow().date()
-
+    submissions = execute_query("job_submissions", "select", filters=[("approved", "neq", "REJECTED")]) 
+    submission_set = set()
+    if submissions:
+        submission_set = {s["assignment_id"] for s in submissions}
+        print(submission_set)
     for assignment in all_assignments:
         due_date = datetime.fromisoformat(assignment["due_at"]).date()
-        if due_date + timedelta(days=expire_after_days) < today:
+        
+        if due_date + timedelta(days=expire_after_days) < today and assignment["assignment_id"] not in submission_set:
             # Insert into inactive_jobs
             execute_query(
                 "inactive_jobs",

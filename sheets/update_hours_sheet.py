@@ -67,14 +67,14 @@ def get_approved_from_sheet():
     to_move_row_numbers = []
     approved_ids = []
     rejected_ids = []
-
+    print(all_rows)
     # Rows start at 2 because row 1 is the header
     for i, row in enumerate(all_rows, start=2):
-        if row.get("Approved?") == "Approved":
+        if row.get("Approved?").strip() == "Approved":
             to_move_rows.append([row[h] for h in header])
             to_move_row_numbers.append(i)
             approved_ids.append(row["Submission ID"])
-        elif row.get("Approved?") == "Rejected":
+        elif row.get("Approved?").strip() == "Rejected":
             to_move_rows.append([row[h] for h in header])
             to_move_row_numbers.append(i)
             rejected_ids.append(row["Submission ID"])
@@ -92,7 +92,7 @@ def get_approved_from_sheet():
     # Delete approved rows from source (bottom → top)
     for row_num in sorted(to_move_row_numbers, reverse=True):
         source_sheet.delete_rows(row_num)
-        
+    print(approved_ids, rejected_ids)
     return approved_ids, rejected_ids
 
 #update_spreadsheet("submission_id", "submission_time", "user_name", "job_name", "date_of_completion", "witness_name", "comments")

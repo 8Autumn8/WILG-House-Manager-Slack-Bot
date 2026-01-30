@@ -6,7 +6,7 @@ from sheets.makeup_hour_sheet import get_makeup_job_assignments_from_sheet
 
 def add_jobs():
     jobs = get_jobs_from_sheet()
-    print(jobs)
+    #print(jobs)
     add_job_to_db(jobs)
     
 def make_job_assignments(start_date):
@@ -26,6 +26,6 @@ def generate_makeup_jobs(start_date):
 if __name__ == '__main__':
     
     add_jobs()
-    make_job_assignments("2026-1-5")
+    make_job_assignments("2026-1-5", "2026-")
     generate_makeup_jobs("2026-1-5")
-    make_permanent_makeup_job_assignments()
+    #make_permanent_makeup_job_assignments()

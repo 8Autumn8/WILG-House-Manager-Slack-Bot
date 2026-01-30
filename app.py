@@ -123,8 +123,8 @@ def submit_hour_api():
 
 def claim_job_for_makeup_background(channel_id, user_id, assignment_id):
     result = claim_job_for_makeup(user_id, assignment_id)
-    if not result:
-        message = "❌ Could not claim job for makeup. Please check the assignment ID is still available for makeup and try again."
+    if result["result"] == "ERROR":
+        message = f"❌ Could not claim job for makeup: {result['message']}"
     else:
         message = f"✅ Job claimed for makeup: {result['job_name']} due @ {result['due_at']}"
 
@@ -155,8 +155,8 @@ def giveup_job_for_makeup_background(channel_id, user_id, assignment_id):
     # print("CHANNEL,", channel_id)
     # print("MAKEUP,", MAKEUP_HOUR_CHANNEL)
     result = giveup_job_for_makeup(user_id, assignment_id)
-    if not result:
-        message = "❌ Could not give up job for makeup. Please check the assignment ID and try again."
+    if result["result"] == "ERROR":
+        message = f"❌ Could not give up job for makeup: {result['message']}"
         client.chat_postMessage(
             channel=channel_id,
             text=message
@@ -218,9 +218,9 @@ def handle_actions_background(payload):
         blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup")
     elif view_type == "active":
         assignments = get_user_assignments(user_id)
-        print("Assignments:", assignments)
+        #print("Assignments:", assignments)
         assignments, total_pages = page_block_formatting_helper(assignments, page)
-        print("Paged Assignments:", assignments)
+        #print("Paged Assignments:", assignments)
         table_text = format_user_active_assignments(assignments)
         blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
 
@@ -304,13 +304,13 @@ ADMINS = os.getenv("ADMIN_USER_IDS").split(",")
 def update_approved_hours_api():
     data = request.form
     #print(data)
-    user_id = data.get('user_id')
-    if user_id not in ADMINS:
-        return jsonify({
-            "response_type": "ephemeral",
-            "text": "❌ You do not have permission to perform this action."
-        }), 403
-    channel_id = data.get('channel_id')
+    #user_id = data.get('user_id')
+    # if user_id not in ADMINS:
+    #     return jsonify({
+    #         "response_type": "ephemeral",
+    #         "text": "❌ You do not have permission to perform this action."
+    #     }), 403
+    channel_id = "C0A4RQ854H3" #data.get('channel_id')
     message = f"Admin is syncing approved hours."
     response = client.chat_postMessage(channel=channel_id, text=message)
 
@@ -429,14 +429,14 @@ def see_makeup_jobs_api():
 def send_expiring_job_reminders():
     #print("Sending expiring job reminders...")
     expiring_jobs = get_expiring_jobs()
-    print(expiring_jobs)
+    #(expiring_jobs)
     for job in expiring_jobs:
         text = f"⚠️ Job *{job['job_name']}* is expiring in a few hours! Please submit your hours, otherwise you will forfeit the hours for this job."
         client.chat_postMessage(channel=job['slack_user_id'], text=text)
 
 @app.route('/run-expiring-jobs', methods=['GET', 'POST'])
 def run_expiring_job_reminders_api():
-    print("Running expiring job reminders...")
+    #print("Running expiring job reminders...")
     client.chat_postMessage(channel=house_mnager_channel_id, text="Cron Job: Running expiring job reminders...")
     send_expiring_job_reminders()
     return Response(), 200

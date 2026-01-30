@@ -25,6 +25,21 @@ def get_table(table_name: str):
     return supabase.table(table_name)
 
 
+def operation(op, q, col, val):
+    if op == "eq":
+        q = q.eq(col, val)
+    elif op == "neq":
+        q = q.neq(col, val)
+    elif op == "gt":
+        q = q.gt(col, val)
+    elif op == "gte":
+        q = q.gte(col, val)
+    elif op == "lt":
+        q = q.lt(col, val)
+    elif op == "lte":
+        q = q.lte(col, val)
+    return q
+
 def execute_query(table_name: str, query_type: str, data=None, filters=None):
     """
     Generalized query executor
@@ -39,7 +54,7 @@ def execute_query(table_name: str, query_type: str, data=None, filters=None):
         q = tbl.select("*")
         if filters:
             for col, op, val in filters:
-                q = q.eq(col, val) if op == "eq" else q
+                operation(op, q, col, val)
         return q.execute().data
 
     elif query_type == "insert":
@@ -49,14 +64,14 @@ def execute_query(table_name: str, query_type: str, data=None, filters=None):
         q = tbl.update(data)
         if filters:
             for col, op, val in filters:
-                q = q.eq(col, val) if op == "eq" else q
+                operation(op, q, col, val)
         return q.execute().data
 
     elif query_type == "delete":
         q = tbl.delete()
         if filters:
             for col, op, val in filters:
-                q = q.eq(col, val) if op == "eq" else q
+                operation(op, q, col, val)
         return q.execute().data
 
     else:
