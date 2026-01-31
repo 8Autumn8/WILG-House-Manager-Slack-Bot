@@ -165,45 +165,43 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
 
 # ---------- See Makeup Jobs ----------
 
+from typing import List, Dict, Optional
+
 def db_see_makeup_jobs(job_id: Optional[int] = None) -> List[Dict]:
     """
-    Retrieve all makeup jobs currently available using a single query with a join.
+    Retrieve all makeup jobs with job details.
     
-    - job_id: Optional; if provided, filters to that specific job.
+    - job_id: Optional; if provided, filters to that job_id.
     """
-    filters = []
-    if job_id is not None:
-        filters.append(("job_id", "eq", job_id))  # assumes jobs relationship is by job_id
+    filters = [("job_id", "eq", job_id)] if job_id else None
 
-    # Use the Supabase relationship to fetch related job data
     makeups = execute_query(
-        "makeup_jobs",
+        "makeup_jobs_with_details",
         "select",
-        select=[
-            "original_assignment_id",
-            "due_at",
-            "created_at",
-            "jobs(job_id, job_name, job_description)"
-        ],
-        filters=filters if filters else None
+        select="*",
+        filters=filters
     )
 
+    # Map to consistent dict format
     results = []
     for m in makeups:
-        job = m.get("jobs", [{}])[0]  # get the first job if it exists
         results.append({
-            "original_assignment_id": m["original_assignment_id"],
-            "job_id": job.get("job_id"),
-            "job_name": job.get("job_name", "Unknown Job"),
-            "job_description": job.get("job_description"),
-            "due_at": m["due_at"],
-            "created_at": m.get("created_at")
+            "makeup_job_id": m.get("makeup_job_id"),
+            "original_assignment_id": m.get("original_assignment_id"),
+            "prev_user_id": m.get("prev_user_id"),
+            "due_at": m.get("makeup_due_at"),
+            "created_at": m.get("created_at"),
+            "job_id": m.get("job_id"),
+            "job_name": m.get("job_name", "Unknown Job"),
+            "job_description": m.get("job_description"),
+            "num_hours": m.get("num_hours"),
+            "job_type": m.get("job_type"),
+            "due_by_time": m.get("due_by_time")
         })
 
     # Sort by due_at ascending
     results.sort(key=lambda r: r["due_at"] or "")
     return results
-
 
 
 
