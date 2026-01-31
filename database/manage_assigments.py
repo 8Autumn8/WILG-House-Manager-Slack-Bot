@@ -104,7 +104,9 @@ def expire_active_assignments(expire_after_days: int = 7):
 # services/assignments.py
 from database.db import execute_query
 
-def get_active_assignments(slack_user_id: int):
+from typing import List, Dict
+
+def get_active_assignments(slack_user_id: str) -> List[Dict]:
     """
     Get all active assignments for a user, including job info.
     Returns a list of dicts with:
@@ -116,63 +118,29 @@ def get_active_assignments(slack_user_id: int):
     - due_at
     - status
     """
-    # Step 1: Get all active assignments for this user
+    # Get user_id from slack_user_id
     user_id = get_user_id(slack_user_id)
 
+    # Query the view
     active_assignments = execute_query(
-        "active_assignments",
+        "active_assignments_with_jobs",
         "select",
         filters=[("user_id", "eq", user_id)]
     )
 
-    if not active_assignments:
-        return []
-
+    # Map results
     results = []
-
-    # Step 2: For each assignment, get job_id from assignment_jobs, then job info
-    for assignment in active_assignments:
-        assignment_id = assignment.get("assignment_id")
-        if not assignment_id:
-            continue  # skip if somehow missing
-
-        # Get the job_id from assignment_jobs
-        assignment_job = execute_query(
-            "assignment_jobs",
-            "select",
-            filters=[("assignment_id", "eq", assignment_id)]
-        )
-
-        if not assignment_job:
-            continue  # skip if no mapping found
-
-        job_id = assignment_job[0].get("job_id")
-        if job_id is None:
-            continue  # skip if job_id missing
-
-        # Get job info
-        job_info = execute_query(
-            "jobs",
-            "select",
-            filters=[("job_id", "eq", job_id)]
-        )
-
-        if not job_info:
-            continue
-
-        job = job_info[0]
-
-        # Combine into a single dict
+    for a in active_assignments:
         results.append({
-            "assignment_id": assignment_id,
-            "job_id": job_id,
-            "job_name": job.get("job_name"),
-            "job_type": job.get("job_type"),
-            "num_hours": job.get("num_hours"),
-            "due_at": assignment.get("due_at"),
-            "status": assignment.get("status")
+            "assignment_id": a.get("assignment_id"),
+            "job_id": a.get("job_id"),
+            "job_name": a.get("job_name"),
+            "job_type": a.get("job_type"),
+            "num_hours": a.get("num_hours"),
+            "due_at": a.get("due_at"),
+            "status": a.get("status")
         })
 
+    # Sort by due_at ascending
     results.sort(key=lambda r: r["due_at"] or "")
-    #print("Active assignments retrieved:", results)
     return results
