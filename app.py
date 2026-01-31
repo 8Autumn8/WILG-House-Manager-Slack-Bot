@@ -201,12 +201,13 @@ def handle_actions_background(payload):
     #page = int(action["value"])
     
     channel_id = payload_json["channel"]["id"]
-    user_name = action["value"]["user_name"]
-    view_type = action["value"]["view_type"]        # e.g., "submissions-2" or "makeup-1"
-    page = int(action["value"]["page"])
+    payload = json.loads(action["value"])
+    user_name = payload["user_name"]
+    view_type = payload["view_type"]        # e.g., "submissions-2" or "makeup-1"
+    page = int(payload["page"])
 
     if view_type == "submissions":
-        user_id = int(action["value"]["user_id"])
+        user_id = int(payload["user_id"])
         submissions, approved_hours = get_user_submissions(user_id)
         submissions, total_pages = page_block_formatting_helper(submissions, page)
         table_text = format_submissions_table(submissions, approved_hours)
@@ -217,7 +218,7 @@ def handle_actions_background(payload):
         table_text = format_makeup_jobs(makeup_jobs)
         blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup", user_name=user_name)
     elif view_type == "active":
-        user_id = int(action["value"]["user_id"])
+        user_id = int(payload["user_id"])
         assignments = get_user_assignments(user_id)
         #print("Assignments:", assignments)
         assignments, total_pages = page_block_formatting_helper(assignments, page)
@@ -225,7 +226,7 @@ def handle_actions_background(payload):
         table_text = format_user_active_assignments(assignments)
         blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_name=user_name)
     elif view_type == "available_job_id_makeup":
-        job_id = int(action["value"]["job_id"])
+        job_id = int(payload["job_id"])
         result = get_available_jobs_by_id(job_id)
         if result["result"] == "ERROR":
             client.chat_postMessage(
