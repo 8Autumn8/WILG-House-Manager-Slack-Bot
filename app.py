@@ -207,7 +207,7 @@ def handle_actions_background(payload):
     page = int(payload["page"])
 
     if view_type == "submissions":
-        user_id = int(payload["user_id"])
+        user_id = payload["user_id"]
         submissions, approved_hours = get_user_submissions(user_id)
         submissions, total_pages = page_block_formatting_helper(submissions, page)
         table_text = format_submissions_table(submissions, approved_hours)
@@ -218,7 +218,7 @@ def handle_actions_background(payload):
         table_text = format_makeup_jobs(makeup_jobs)
         blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup", user_name=user_name)
     elif view_type == "active":
-        user_id = int(payload["user_id"])
+        user_id = payload["user_id"]
         assignments = get_user_assignments(user_id)
         #print("Assignments:", assignments)
         assignments, total_pages = page_block_formatting_helper(assignments, page)
