@@ -79,8 +79,6 @@ def build_page_blocks(total_pages, page, table_text, view_type="submissions", jo
                 "user_id": user_id,
                 "user_name": user_name
             }),
-            "job_id": job_id,
-            "user_id": user_id,
             "action_id": "next_page"
         })
 
