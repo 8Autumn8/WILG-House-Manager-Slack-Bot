@@ -203,7 +203,7 @@ def handle_actions_background(payload):
     channel_id = payload_json["channel"]["id"]
     payload = json.loads(action["value"])
     user_name = payload["user_name"]
-    view_type = payload["view_type"]        # e.g., "submissions-2" or "makeup-1"
+    view_type = payload["view_type"]  
     page = int(payload["page"])
 
     if view_type == "submissions":

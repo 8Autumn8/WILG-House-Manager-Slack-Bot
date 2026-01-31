@@ -40,21 +40,38 @@ def operation(op, q, col, val):
         q = q.lte(col, val)
     return q
 
-def execute_query(table_name: str, query_type: str, data=None, filters=None):
+
+def execute_query(
+    table_name: str,
+    query_type: str,
+    data=None,
+    filters=None,
+    select="*",
+):
     """
     Generalized query executor
-    - table_name: the Supabase table
+
+    - table_name: Supabase table
     - query_type: "select", "insert", "update", "delete"
     - data: dict or list of dicts for insert/update
-    - filters: list of tuples for filtering, e.g. [("id", "eq", 1)]
+    - filters: list of tuples, e.g. [("id", "eq", 1)]
+    - select: columns to select (supports Supabase joins)
     """
     tbl = get_table(table_name)
 
     if query_type == "select":
-        q = tbl.select("*")
+        # Allow list or string
+        if isinstance(select, list):
+            select_clause = ",".join(select)
+        else:
+            select_clause = select
+
+        q = tbl.select(select_clause)
+
         if filters:
             for col, op, val in filters:
                 operation(op, q, col, val)
+
         return q.execute().data
 
     elif query_type == "insert":
@@ -76,7 +93,7 @@ def execute_query(table_name: str, query_type: str, data=None, filters=None):
 
     else:
         raise ValueError(f"Unknown query_type: {query_type}")
-    
+
 
 def get_user_id(slack_user_id):
     """

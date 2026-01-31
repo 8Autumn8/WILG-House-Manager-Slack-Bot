@@ -24,7 +24,7 @@ def see_makeup_jobs():
 
 def get_available_jobs_by_id(job_id):
     try:
-        all_makeup_jobs = db_see_makeup_jobs()
+        all_makeup_jobs = db_see_makeup_jobs(job_id)
         available_jobs = [job for job in all_makeup_jobs if job['job_id'] == job_id]
         return {"result": "SUCCESS", "available_jobs": available_jobs}
     except Exception as e:
