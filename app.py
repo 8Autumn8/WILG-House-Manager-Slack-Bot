@@ -226,8 +226,14 @@ def handle_actions_background(payload):
         blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_name=user_name)
     elif view_type == "available_job_id_makeup":
         job_id = int(action["value"]["job_id"])
-        available_jobs = get_available_jobs_by_id(job_id)
-        makeup_jobs, total_pages = page_block_formatting_helper(available_jobs["available_jobs"], page)
+        result = get_available_jobs_by_id(job_id)
+        if result["result"] == "ERROR":
+            client.chat_postMessage(
+                channel=channel_id,
+                text=f"❌ Could not get available jobs for job ID {job_id}: {result['message']}"
+            )
+            return
+        makeup_jobs, total_pages = page_block_formatting_helper(result["available_jobs"], page)
         table_text = format_makeup_jobs(makeup_jobs)
         blocks = build_page_blocks(total_pages, page,table_text, view_type="available_job_id_makeup", job_id=job_id, user_name=user_name)
 
@@ -374,7 +380,14 @@ def generate_user_table_api():
 
 
 def get_available_jobs_of_this_id_background(channel_id, job_id):
-    available_jobs = get_available_jobs_by_id(job_id)
+    result = get_available_jobs_by_id(job_id)
+    if result["result"] == "ERROR":
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"❌ Could not get available jobs for job ID {job_id}: {result['message']}"
+        )
+        return
+    available_jobs = result["available_jobs"]
 
     makeup_jobs, total_pages = page_block_formatting_helper(available_jobs, 1)
     table_text = format_makeup_jobs(makeup_jobs)
