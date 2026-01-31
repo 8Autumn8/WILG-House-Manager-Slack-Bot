@@ -74,7 +74,7 @@ def build_page_blocks(total_pages, page, table_text, view_type="submissions", jo
             "text": {"type": "plain_text", "text": "Next ➡"},
             "value": json.dumps({
                 "view_type": view_type,
-                "page": page-1,
+                "page": page+1,
                 "job_id": job_id,
                 "user_id": user_id,
                 "user_name": user_name
