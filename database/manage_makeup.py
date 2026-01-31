@@ -63,10 +63,10 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     )
     if not assignments:
         raise ValueError("Assignment not found or already removed.")
-    print("USER ID,", user_id)
+    #print("USER ID,", user_id)
     assignment = assignments[0]
     job_id = get_job_id(assignment_id)
-    print("job_id", job_id)
+    #print("job_id", job_id)
     # Check job info
     job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", job_id)])
     job = job_rows[0] if job_rows else {}
@@ -76,14 +76,14 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     # Parse ISO string as naive, then localize to ET
     due_at = datetime.fromisoformat(assignment["due_at"])
     due_at = ET.localize(due_at)  # make it timezone-aware
-    print(datetime.now(ET) , due_at - timedelta(hours=24))
+    #print(datetime.now(ET) , due_at - timedelta(hours=24))
     can_still_giveup = datetime.now(ET) < (due_at)
 
     if not can_still_giveup:
         raise ValueError("Cannot give up job for makeup after due time.")
     
     is_late_makeup = datetime.now(ET) > (due_at - timedelta(hours=24))
-    print("Is late makeup:", is_late_makeup)
+    #print("Is late makeup:", is_late_makeup)
     # Insert into makeup_jobs
     makeup_data = {
         "original_assignment_id": assignment_id,
@@ -165,29 +165,47 @@ def claim_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
 
 # ---------- See Makeup Jobs ----------
 
-def db_see_makeup_jobs() -> List[Dict]:
+def db_see_makeup_jobs(job_id: Optional[int] = None) -> List[Dict]:
     """
-    Retrieve all makeup jobs currently available.
+    Retrieve all makeup jobs currently available using a single query with a join.
+    
+    - job_id: Optional; if provided, filters to that specific job.
     """
-    makeups = execute_query("makeup_jobs", "select")
+    filters = []
+    if job_id is not None:
+        filters.append(("job_id", "eq", job_id))  # assumes jobs relationship is by job_id
+
+    # Use the Supabase relationship to fetch related job data
+    makeups = execute_query(
+        "makeup_jobs",
+        "select",
+        select=[
+            "original_assignment_id",
+            "due_at",
+            "created_at",
+            "jobs(job_id, job_name, job_description)"
+        ],
+        filters=filters if filters else None
+    )
 
     results = []
     for m in makeups:
-        job_id = get_job_id(m["original_assignment_id"])
-        job_rows = execute_query("jobs", "select", filters=[("job_id", "eq", job_id)])
-        job = job_rows[0] if job_rows else {}
-
+        job = m.get("jobs", [{}])[0]  # get the first job if it exists
         results.append({
             "original_assignment_id": m["original_assignment_id"],
-            "job_id": job_id,
+            "job_id": job.get("job_id"),
             "job_name": job.get("job_name", "Unknown Job"),
             "job_description": job.get("job_description"),
             "due_at": m["due_at"],
             "created_at": m.get("created_at")
         })
 
-    # Sort by created_at ascending
+    # Sort by due_at ascending
     results.sort(key=lambda r: r["due_at"] or "")
     return results
+
+
+
+
 
 
