@@ -135,7 +135,7 @@ def format_user_active_assignments(assignments):
 
     header = (
         "```"
-        "ID   Job Name                        Due At                    Status\n"
+        "ID   Job Name                              Due At                    Status\n"
         "---------------------------------------------------------------------\n"
     )
 
@@ -147,7 +147,7 @@ def format_user_active_assignments(assignments):
 
         rows.append(
             f"{str(a['assignment_id']).ljust(4)} "
-            f"{str(a['job_name']).ljust(30)} "
+            f"{str(a['job_name']).ljust(40)} "
             f"{str(due_at).ljust(26)} "
             f"{a['status']}"
         )
@@ -187,8 +187,8 @@ def format_makeup_jobs(jobs):
 
     header = (
         "```"
-        "ID   Job Name                        Due At                  \n"
-        "-------------------------------------------------------------\n"
+        "ID   Job Name                                      Due At                  \n"
+        "----------------------------------------------------------------------\n"
     )
 
     rows = []
@@ -199,7 +199,7 @@ def format_makeup_jobs(jobs):
 
         rows.append(
             f"{str(j['original_assignment_id']).ljust(4)} "
-            f"{str(j['job_name']).ljust(30)} "
+            f"{str(j['job_name']).ljust(40)} "
             f"{str(due_at).ljust(26)} "
         )
 
