@@ -6,7 +6,7 @@ from database.db import execute_query, get_user_id, get_job_id, get_slack_user_i
 
 ET = ZoneInfo("America/New_York")  # Eastern Time (DST-aware)
 
-def get_expiring_assignments(days_after_due: int = 6) -> list[dict]:
+def get_expiring_assignments(days_after_due: int = 5) -> list[dict]:
     """
     Return active assignments that will expire in `days_before_expire` days from today (in EST).
     Each dict includes assignment_id, slack_user_id, job_name, and due_at.
@@ -31,7 +31,7 @@ def get_expiring_assignments(days_after_due: int = 6) -> list[dict]:
         # How many days have passed since due date
         days_since_due = (today - due_date).days
 
-        # Trigger reminder 6 days after due date
+        # Trigger reminder [days_after_due] days after due date
         if days_since_due == days_after_due:
             # Get job_name (all assignments have a job_id)
             job_id = get_job_id(assignment["assignment_id"])

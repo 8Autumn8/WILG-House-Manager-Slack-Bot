@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 import os
 
 def format_submissions_table(submissions, approved_hours):
@@ -46,7 +47,7 @@ def page_block_formatting_helper(data, page):
     data_on_page = get_page(data, page)
     return data_on_page, total_pages
 
-def build_page_blocks(total_pages, page, table_text, view_type="submissions"):
+def build_page_blocks(total_pages, page, table_text, view_type="submissions", job_id=None, user_id = None,user_name=None):
 
     blocks = [
         {"type": "section", "text": {"type": "mrkdwn", "text": table_text}}
@@ -57,14 +58,29 @@ def build_page_blocks(total_pages, page, table_text, view_type="submissions"):
         buttons.append({
             "type": "button",
             "text": {"type": "plain_text", "text": "⬅ Prev"},
-            "value": f"{view_type}-{page-1}",  # encode view + page
+            "value": json.dumps({
+                "view_type": view_type,
+                "page": page-1,
+                "job_id": job_id,
+                "user_id": user_id,
+                "user_name": user_name
+                
+            }),
             "action_id": "prev_page"
         })
     if page < total_pages:
         buttons.append({
             "type": "button",
             "text": {"type": "plain_text", "text": "Next ➡"},
-            "value": f"{view_type}-{page+1}",  # encode view + page
+            "value": json.dumps({
+                "view_type": view_type,
+                "page": page-1,
+                "job_id": job_id,
+                "user_id": user_id,
+                "user_name": user_name
+            }),
+            "job_id": job_id,
+            "user_id": user_id,
             "action_id": "next_page"
         })
 
@@ -84,7 +100,7 @@ def format_all_user_hours_table(all_user_hours):
         "Username        Hours Completed                Missed Jobs\n"
         "------------------------------------------------------------\n"
     )
-
+    all_user_hours = sorted(all_user_hours, key=lambda x: x['username'].lower())
     rows = []
     for user in all_user_hours:
         rows.append(

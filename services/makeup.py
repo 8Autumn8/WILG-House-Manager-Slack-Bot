@@ -22,6 +22,15 @@ def see_makeup_jobs():
         #print(f"Error in see_makeup_jobs: {e}")
         return e
 
+def get_available_jobs_by_id(job_id):
+    try:
+        all_makeup_jobs = db_see_makeup_jobs()
+        available_jobs = [job for job in all_makeup_jobs if job['job_id'] == job_id]
+        return {"result": "SUCCESS", "available_jobs": available_jobs}
+    except Exception as e:
+        #print(f"Error in get_available_jobs_by_id: {e}")
+        return {"result": "ERROR", "message": str(e)}
+
 def expire_makeup_jobs():
     db_expire_makeup_jobs()
 

@@ -7,7 +7,7 @@ from flask import Flask, json, request, Response, jsonify
 from slackeventsapi import SlackEventAdapter
 from services.submissions import submit_hours, get_user_submissions, sync_hours
 from services.formatters import format_submissions_table, build_page_blocks, format_all_user_hours_table, format_user_active_assignments, parse_date, format_makeup_giveup_message, format_makeup_jobs, page_block_formatting_helper
-from services.makeup import claim_job_for_makeup, giveup_job_for_makeup, expire_makeup_jobs, see_makeup_jobs
+from services.makeup import claim_job_for_makeup, giveup_job_for_makeup, expire_makeup_jobs, see_makeup_jobs, get_available_jobs_by_id
 from services.assignments import generate_user_table, get_user_assignments, expire_assignments
 from services.reminders import get_expiring_jobs
 from datetime import datetime
@@ -100,11 +100,11 @@ def submit_hour_api():
         }), 400
 
     witness_slack_user_id = get_user_id_by_username(commands[3])
-    # if not witness_slack_user_id or witness_slack_user_id == user_id:
-    #     return jsonify({
-    #         "response_type": "ephemeral",
-    #         "text": f"❌ Could not find witness user: {commands[3]}"
-    #     }), 400
+    if not witness_slack_user_id or witness_slack_user_id == user_id:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": f"❌ Could not find witness user: {commands[3]}"
+        }), 400
     comments = commands[4::] if len(commands) > 4 else ""
     submission_time = data.get("submission_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     username = data.get('user_name')
@@ -199,36 +199,43 @@ def handle_actions_background(payload):
 
     action = payload_json["actions"][0]
     #page = int(action["value"])
-    user_id = payload_json["user"]["id"]
+    
     channel_id = payload_json["channel"]["id"]
-    user_name = payload_json["user"]["name"]
-    view_page = action["value"]        # e.g., "submissions-2" or "makeup-1"
-    view_type, page_str = view_page.split("-")
-    page = int(page_str)
+    user_name = action["value"]["user_name"]
+    view_type = action["value"]["view_type"]        # e.g., "submissions-2" or "makeup-1"
+    page = int(action["value"]["page"])
 
     if view_type == "submissions":
+        user_id = int(action["value"]["user_id"])
         submissions, approved_hours = get_user_submissions(user_id)
         submissions, total_pages = page_block_formatting_helper(submissions, page)
         table_text = format_submissions_table(submissions, approved_hours)
-        blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions")
+        blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions", user_id=user_id, user_name=user_name)
     elif view_type == "makeup":
         makeup_jobs = see_makeup_jobs()
         makeup_jobs, total_pages = page_block_formatting_helper(makeup_jobs, page)
         table_text = format_makeup_jobs(makeup_jobs)
-        blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup")
+        blocks = build_page_blocks(total_pages, page,table_text, view_type="makeup", user_name=user_name)
     elif view_type == "active":
+        user_id = int(action["value"]["user_id"])
         assignments = get_user_assignments(user_id)
         #print("Assignments:", assignments)
         assignments, total_pages = page_block_formatting_helper(assignments, page)
         #print("Paged Assignments:", assignments)
         table_text = format_user_active_assignments(assignments)
-        blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
+        blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_name=user_name)
+    elif view_type == "available_job_id_makeup":
+        job_id = int(action["value"]["job_id"])
+        available_jobs = get_available_jobs_by_id(job_id)
+        makeup_jobs, total_pages = page_block_formatting_helper(available_jobs["available_jobs"], page)
+        table_text = format_makeup_jobs(makeup_jobs)
+        blocks = build_page_blocks(total_pages, page,table_text, view_type="available_job_id_makeup", job_id=job_id, user_name=user_name)
 
     # Update original message
     client.chat_update(
         channel=channel_id,
         ts=payload_json["message"]["ts"],
-        text=f"Here are {user_name}'s submissions",
+        text=f"Updating....",
         blocks=blocks
     )
 
@@ -259,7 +266,7 @@ def get_my_hour_submissions_background(user_id, channel_id):
     page = 1
     submissions, total_pages = page_block_formatting_helper(submissions, page)
     table_text = format_submissions_table(submissions, approved_hours)
-    blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions")
+    blocks = build_page_blocks(total_pages, page, table_text, view_type="submissions", user_id=user_id)
 
     #print(blocks)
     #submissions_message = format_submissions_table(submissions, approved_hours)
@@ -358,6 +365,40 @@ def generate_user_table_api():
 
     threading.Thread(
         target=generate_user_table_background,
+        args=(channel_id,)
+    ).start()
+    
+
+    #ping witness that job person had them as the witness
+    return Response(), 200
+
+
+def get_available_jobs_of_this_id_background(channel_id, job_id):
+    available_jobs = get_available_jobs_by_id(job_id)
+
+    makeup_jobs, total_pages = page_block_formatting_helper(available_jobs, 1)
+    table_text = format_makeup_jobs(makeup_jobs)
+    #print(table_text)
+    blocks = build_page_blocks(total_pages, 1,table_text, view_type="available_job_id_makeup", job_id=job_id, user_name=None)
+    client.chat_postMessage(
+        channel=channel_id,
+        text=f"Makeup Jobs of {job_id}",
+        blocks=blocks
+    )
+
+
+@app.route('/get-available-jobs-of-this-id', methods=['POST'])
+def get_available_jobs_of_this_id_api():
+    data = request.form
+    user_id = data.get('user_id')
+    job_id = int(data.get('text').split()[-1])  # Extract job_id from the last part of the text
+    channel_id = data.get('channel_id')
+    message = f"Getting available jobs for job ID: {job_id}"
+    response = client.chat_postMessage(channel=channel_id, text=message)
+    #print(data)
+
+    threading.Thread(
+        target=get_available_jobs_of_this_id_background,
         args=(channel_id,)
     ).start()
     
