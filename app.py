@@ -224,7 +224,7 @@ def handle_actions_background(payload):
         assignments, total_pages = page_block_formatting_helper(assignments, page)
         #print("Paged Assignments:", assignments)
         table_text = format_user_active_assignments(assignments)
-        blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_name=user_name)
+        blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_name=user_name, user_id=user_id)
     elif view_type == "available_job_id_makeup":
         job_id = int(payload["job_id"])
         result = get_available_jobs_by_id(job_id)
@@ -426,7 +426,7 @@ def get_my_assignments_background(user_id, channel_id):
     assignments, total_pages = page_block_formatting_helper(assignments, page)
     #print("Paged Assignments:", assignments)
     table_text = format_user_active_assignments(assignments)
-    blocks = build_page_blocks(total_pages, page, table_text, view_type="active")
+    blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_id=user_id)
     client.chat_postMessage(
         channel=channel_id,
         text="Assignments:",
