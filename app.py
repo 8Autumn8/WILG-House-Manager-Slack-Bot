@@ -311,12 +311,12 @@ ADMINS = os.getenv("ADMIN_USER_IDS").split(",")
 def update_approved_hours_api():
     data = request.form
     #print(data)
-    #user_id = data.get('user_id')
-    # if user_id not in ADMINS:
-    #     return jsonify({
-    #         "response_type": "ephemeral",
-    #         "text": "❌ You do not have permission to perform this action."
-    #     }), 403
+    user_id = data.get('user_id')
+    if user_id not in ADMINS:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": "❌ You do not have permission to perform this action."
+        }), 403
     channel_id = "C0A4RQ854H3" #data.get('channel_id')
     message = f"Admin is syncing approved hours."
     response = client.chat_postMessage(channel=channel_id, text=message)
@@ -399,10 +399,9 @@ def get_available_jobs_of_this_id_api():
 
     threading.Thread(
         target=get_available_jobs_of_this_id_background,
-        args=(channel_id,)
+        args=(channel_id, job_id)
     ).start()
     
-
     #ping witness that job person had them as the witness
     return Response(), 200
 
