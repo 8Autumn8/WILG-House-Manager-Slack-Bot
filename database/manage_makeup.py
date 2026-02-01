@@ -106,6 +106,7 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     )
 
     return {
+        "result": "SUCCESS",
         "assignment_id": assignment_id,
         "job_id": job_id,
         "job_name": job.get("job_name", "Unknown Job"),
