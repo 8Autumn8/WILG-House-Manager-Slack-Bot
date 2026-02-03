@@ -86,7 +86,6 @@ def giveup_makeup_job(slack_user_id: str, assignment_id: int) -> Dict:
     #print("Is late makeup:", is_late_makeup)
     # Insert into makeup_jobs
     makeup_data = {
-        "result": "SUCCESS",
         "original_assignment_id": assignment_id,
         "due_at": assignment["due_at"],
         "created_at": datetime.now(ET_OFFSET).isoformat()
