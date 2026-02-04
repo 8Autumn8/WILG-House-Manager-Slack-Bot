@@ -428,7 +428,7 @@ def get_my_assignments_background(user_id, channel_id):
     table_text = format_user_active_assignments(assignments)
     blocks = build_page_blocks(total_pages, page, table_text, view_type="active", user_id=user_id)
     client.chat_postMessage(
-        channel=channel_id,
+        channel=user_id,
         text="Assignments:",
         blocks=blocks
     )   
@@ -441,7 +441,7 @@ def get_my_assignments_api():
     #print(data)
     user_name = data.get('user_name')
     message = f"Getting {user_name}'s assignments"
-    response = client.chat_postMessage(channel=channel_id, text=message)
+    response = client.chat_postMessage(channel=user_id, text=message)
 
     threading.Thread(
         target=get_my_assignments_background,
