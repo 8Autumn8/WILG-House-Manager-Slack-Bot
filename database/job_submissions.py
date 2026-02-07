@@ -37,6 +37,14 @@ def add_to_submission_table(
     """
     user_id = get_user_id(slack_user_id)
     witness_user_id = get_user_id(witness_slack_user_id) if witness_slack_user_id else None
+    user_assignments = execute_query(
+        "active_assignments",
+        "select",
+        filters=[("assignment_id", "eq", assignment_id), ("user_id", "eq", user_id)]
+    )
+
+    if user_assignments == []:
+        raise ValueError("User is not assigned to this job")
 
     if user_id is None:
         raise ValueError("Submitting user not found")
