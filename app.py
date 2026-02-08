@@ -105,7 +105,8 @@ def submit_hour_api():
             "response_type": "ephemeral",
             "text": f"❌ Could not find witness user: {commands[3]}"
         }), 400
-    comments = ' '.join(commands[4::]) if len(commands) > 4 else ""
+    comments = " ".join(commands[4:]) if len(commands) > 4 else ""
+    print("comments:", comments)
     submission_time = data.get("submission_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     username = data.get('user_name')
     # Immediately ACK Slack
