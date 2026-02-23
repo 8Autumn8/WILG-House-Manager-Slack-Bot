@@ -26,7 +26,7 @@ def submit_hours(
     comments,
     channel_id
 ):
-    print("Submitting hours...")
+    #print("Submitting hours...")
     try:
 
         submission_id, user_name, job_name, witness_name = add_to_submission_table(
@@ -39,7 +39,7 @@ def submit_hours(
             comments,
             channel_id
         )
-        print("added to submission table, now updating logs...")
+        #print("added to submission table, now updating logs...")
         add_to_submission_logs(submission_id, submission_time, user_name, job_name, job_hours, date_of_completion, witness_name, comments)
         #return submission_id
 

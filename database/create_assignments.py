@@ -10,6 +10,7 @@ FREQUENCY_CONFIG = {
     "WEEKLY": {"count": 1, "delta": timedelta(weeks=1), "occurance": 1},
     "BIWEEKLY": {"count": 2, "delta": timedelta(weeks=1), "occurance": 1},
     "KITCHEN": {"count": 1, "delta": timedelta(weeks=1), "occurance": 1},
+    "BATHROOM": {"count": 1, "delta": timedelta(weeks=1), "occurance": 1},
 }
 
 ET_OFFSET = timezone(timedelta(hours=-5))
@@ -82,9 +83,9 @@ def add_job_assignments_to_db(assignments, start_date, end_date):
         elif job_type == "DAILY":
             due_at = start_date 
         elif job_type == "BIWEEKLY":
-            due_at = start_date + timedelta(weeks=1)
+            due_at = start_date + timedelta(days=6)
         else:
-            due_at = start_date + timedelta(weeks=1)
+            due_at = start_date + timedelta(days=6)
 
         due_at = due_at.replace(
             hour=hour,
@@ -178,7 +179,7 @@ def add_makeup_jobs_to_makeup_table(jobs, start_date, end_date):
                     due_at += timedelta(days=days_ahead)
                     break
         else:
-            due_at = start_date + timedelta(weeks=1)
+            due_at = start_date + timedelta(days=6)
 
         due_at = due_at.replace(
             hour=hour,
@@ -219,7 +220,7 @@ def add_makeup_jobs_to_makeup_table(jobs, start_date, end_date):
 
                 current_due += config["delta"]
 
-        print(f"Inserted {config['count']} assignments for  {job_name}")
+        print(f"Inserted {config['count'] * config['occurance'] * NUM_WEEKS} assignments for  {job_name}")
 
 
 

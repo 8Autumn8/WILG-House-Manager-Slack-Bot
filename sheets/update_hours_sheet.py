@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent  # goes up one level
 auth_file = BASE_DIR / "google_auth.json"          # full path to your auth file
 
 def add_to_submission_logs(submission_id, submission_time, name, job, number_of_hours,date_of_completion, witness, comments):
-    print(auth_file) 
+    #print(auth_file) 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -90,8 +90,22 @@ def get_approved_from_sheet():
     )
 
     # Delete approved rows from source (bottom → top)
-    for row_num in sorted(to_move_row_numbers, reverse=True):
-        source_sheet.delete_rows(row_num)
+    if to_move_row_numbers:
+        requests = [
+            {
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": source_sheet.id,
+                        "dimension": "ROWS",
+                        "startIndex": row_num - 1,  # Sheets is 0-indexed
+                        "endIndex": row_num
+                    }
+                }
+            }
+            for row_num in sorted(to_move_row_numbers, reverse=True)
+        ]
+
+        source_sheet.spreadsheet.batch_update({"requests": requests})
     print(approved_ids, rejected_ids)
     return approved_ids, rejected_ids
 

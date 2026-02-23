@@ -67,7 +67,7 @@ def expire_active_assignments(expire_after_days: int = 7):
     Move expired assignments from active_assignments to inactive_jobs with status 'EXPIRED'.
     An assignment is expired if due_at + `expire_after_days` < today.
     """
-    all_assignments = execute_query("active_assignments", "select")
+    all_assignments = execute_query("active_assignments", "select", filters=[("satus", "neq", "SUBMITTED")])
     today = datetime.utcnow().date()
     submissions = execute_query("job_submissions", "select", filters=[("approved", "neq", "REJECTED")]) 
     submission_set = set()

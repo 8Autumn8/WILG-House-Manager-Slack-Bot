@@ -78,7 +78,7 @@ def submit_hours_background(user_id, assignment_id, job_hours, date_of_completio
 @app.route('/submit-hour', methods=['POST'])
 def submit_hour_api():
     data = request.form
-    #print(data)
+    print(data)
     commands = data.get('text', '').split()
     if len(commands) < 4:
         return jsonify({
@@ -92,7 +92,7 @@ def submit_hour_api():
     assignment_id = int(commands[0])
     job_hours = float(commands[1])
     date_of_completion = parse_date(commands[2])
-    #print(date_of_completion)
+    print(date_of_completion)
     if date_of_completion is None:
         return jsonify({
             "response_type": "ephemeral",
@@ -100,12 +100,13 @@ def submit_hour_api():
         }), 400
 
     witness_slack_user_id = get_user_id_by_username(commands[3])
-    if not witness_slack_user_id or witness_slack_user_id == user_id:
-        return jsonify({
-            "response_type": "ephemeral",
-            "text": f"❌ Could not find witness user: {commands[3]}"
-        }), 400
-    comments = " ".join(commands[4:]) if len(commands) > 4 else ""
+    # if not witness_slack_user_id or witness_slack_user_id == user_id:
+    #     return jsonify({
+    #         "response_type": "ephemeral",
+    #         "text": f"❌ Could not find witness user: {commands[3]}"
+    #     }), 400
+    print(" ".join(commands[4::]))
+    comments = " ".join(commands[4::]) if len(commands) > 4 else ""
     print("comments:", comments)
     submission_time = data.get("submission_time", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     username = data.get('user_name')
