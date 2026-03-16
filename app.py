@@ -100,11 +100,11 @@ def submit_hour_api():
         }), 400
 
     witness_slack_user_id = get_user_id_by_username(commands[3])
-    # if not witness_slack_user_id or witness_slack_user_id == user_id:
-    #     return jsonify({
-    #         "response_type": "ephemeral",
-    #         "text": f"❌ Could not find witness user: {commands[3]}"
-    #     }), 400
+    if not witness_slack_user_id or witness_slack_user_id == user_id:
+        return jsonify({
+            "response_type": "ephemeral",
+            "text": f"❌ Could not find witness user: {commands[3]}"
+        }), 400
     print(" ".join(commands[4::]))
     comments = " ".join(commands[4::]) if len(commands) > 4 else ""
     print("comments:", comments)
