@@ -1,9 +1,11 @@
+from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
 import os
 from pathlib import Path
 
-SPREADSHEET_NAME = os.getenv("JOB_DESCRIPTION_ASSIGNMENT_SPREADSHEET", "Spring 2026 House & Kitchen Job Description + Assignments")
+load_dotenv()
+SPREADSHEET_NAME = os.getenv("JOB_DESCRIPTION_ASSIGNMENT_SPREADSHEET")
 WORKSHEET_NAME = "Job for Makeup"  # tab name
 
 auth_file = Path(__file__).parent.parent / "google_auth.json"

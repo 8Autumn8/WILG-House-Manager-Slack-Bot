@@ -25,8 +25,8 @@ def generate_makeup_jobs(start_date,end_date):
 
 if __name__ == '__main__':
     
-    #add_jobs()
-    make_job_assignments("2026-2-16", "2026-5-10")
+    add_jobs()
+    #make_job_assignments("2026-2-16", "2026-5-10")
     #make_job_assignments("2026-5-4", "2026-5-10")
     #generate_makeup_jobs("2026-2-2", "2026-5-20")
     #make_permanent_makeup_job_assignments()
